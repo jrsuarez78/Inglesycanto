@@ -1,7 +1,8 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" translate="no">
 <head>
 <meta charset="utf-8">
+<meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Aprenda inglés cantando</title>
 <style>
@@ -552,19 +553,30 @@ function actualizarNivel(v, letra) {
   $("nivelCancion").innerHTML = `<div class="nivelbox">Nivel de dificultad: <b>${esc(n.nombre)}</b><span>${esc(n.desc)}</span><span>${esc(origen)}</span></div>`;
 }
 
+const ES_SW = new Set("que de el la los las y te mi tu yo es un una por con para se lo al del su más pero como si ya está estoy eres muy cuando porque".split(" "));
+const EN_SW = new Set("the and you i to it in is of that my we your on for be with but not are was this have what".split(" "));
+function pareceEspanol(t) {
+  const w = String(t).toLowerCase().match(/[a-záéíóúñü']+/g) || [];
+  const es = w.filter(x => ES_SW.has(x)).length, en = w.filter(x => EN_SW.has(x)).length;
+  return es > 5 && es > en * 1.3;
+}
 const estado = t => { $("estadoLetra").textContent = t; };
 const limpiarTitulo = t => String(t).replace(/\(.*?\)|\[.*?\]/g, " ").replace(/karaoke|instrumental|lyrics|version|official|video|sing along|backing track|originally performed by|in the style of/gi, " ").replace(/[|\-–—_"]/g, " ").replace(/\s+/g, " ").trim();
 
 async function buscarLetra(v) {
   const guardada = rd(LKEY, {})[v.id];
-  if (guardada && guardada.trim()) { actualizarNivel(v, guardada); estado("Usando la letra guardada de esta canción."); return; }
+  if (guardada && guardada.trim() && !pareceEspanol(guardada)) { actualizarNivel(v, guardada); estado("Usando la letra guardada de esta canción."); return; }
   estado("Buscando la letra…"); actualizarNivel(v, "");
   try {
     const consulta = limpiarTitulo(v.consulta || v.titulo);
     const s = await (await fetch("https://api.lyrics.ovh/suggest/" + encodeURIComponent(consulta))).json();
-    const c = s.data && s.data[0]; if (!c) throw new Error("sin resultado");
-    const d = await (await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(c.artist.name)}/${encodeURIComponent(c.title)}`)).json();
-    if (!d.lyrics) throw new Error("sin letra");
+    // Se prueban los primeros resultados y se descartan las letras que están en español (versiones traducidas).
+    let c = null, d = null;
+    for (const cand of (s.data || []).slice(0, 5)) {
+      const r = await (await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(cand.artist.name)}/${encodeURIComponent(cand.title)}`)).json();
+      if (r.lyrics && !pareceEspanol(r.lyrics)) { c = cand; d = r; break; }
+    }
+    if (!c) throw new Error("sin letra en inglés");
     const act = rd(KEY, null); if (!act || act.id !== v.id) return; // cambiaste de canción mientras buscaba
     const letra = d.lyrics.replace(/\r/g, "").trim();
     const l = rd(LKEY, {}); l[v.id] = letra; wr(LKEY, l);
