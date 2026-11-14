@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aprenda inglés cantando</title>
+<style>
+  :root {
+    --bg:#fff8f0; --card:#ffffff; --fg:#2b2140; --mut:#7a6f8c; --bd:#eadfd2;
+    --p1:#ff6b6b; --p2:#ffa94d; --p3:#845ef7; --hov:#f6efff; --sh:0 6px 20px rgba(80,40,120,.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#17121f; --card:#221b30; --fg:#f4eefc; --mut:#a99cc0; --bd:#352b49; --hov:#2d2342; --sh:0 6px 20px rgba(0,0,0,.4); }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 "Segoe UI",system-ui,sans-serif; }
+  .wrap { max-width:1000px; margin:0 auto; padding:0 16px 40px; }
+  header.hero { text-align:center; padding:48px 16px 56px; color:#fff; background:linear-gradient(135deg,var(--p3),var(--p1) 60%,var(--p2)); border-radius:0 0 32px 32px; }
+  .hero h1 { margin:0 0 8px; font-size:clamp(1.7rem,5vw,2.8rem); line-height:1.15; }
+  .hero p { margin:0; opacity:.92; font-size:1.05rem; }
+  .notes { font-size:2rem; letter-spacing:.4rem; }
+  .search { position:relative; max-width:640px; margin:-26px auto 0; }
+  .search input { width:100%; padding:16px 20px; font-size:1.05rem; border:2px solid transparent; border-radius:999px; background:var(--card); color:var(--fg); box-shadow:var(--sh); outline:none; }
+  .search input:focus { border-color:var(--p3); }
+  #sug { position:absolute; left:12px; right:12px; top:100%; margin:6px 0 0; padding:6px; list-style:none; background:var(--card); border:1px solid var(--bd); border-radius:16px; box-shadow:var(--sh); z-index:10; }
+  #sug:empty { display:none; }
+  #sug li { padding:10px 14px; border-radius:10px; cursor:pointer; }
+  #sug li.on, #sug li:hover { background:var(--hov); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:16px 0 0; }
+  .chip { border:1px solid var(--bd); background:var(--card); color:var(--fg); padding:6px 14px; border-radius:999px; cursor:pointer; font-size:.9rem; }
+  .chip:hover { background:var(--hov); }
+  .msg { text-align:center; color:var(--mut); margin:14px 0 0; min-height:1.5em; }
+  .grid { display:grid; grid-template-columns:1.6fr 1fr; gap:20px; margin-top:20px; }
+  @media (max-width:760px) { .grid { grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:20px; padding:18px; box-shadow:var(--sh); }
+  .card h2 { margin:0 0 12px; font-size:1.1rem; }
+  .player iframe { width:100%; aspect-ratio:16/9; border:0; border-radius:14px; }
+  .empty { text-align:center; color:var(--mut); padding:36px 8px; }
+  .empty .big { font-size:2.6rem; }
+  .row { display:flex; gap:12px; align-items:center; padding:8px; border-radius:12px; }
+  .row + .row { border-top:1px solid var(--bd); }
+  .row img { width:84px; border-radius:8px; flex:none; }
+  .row .t { flex:1; min-width:0; font-size:.92rem; }
+  .row .t b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .row .t span { color:var(--mut); font-size:.82rem; }
+  button.go, a.go { border:0; background:linear-gradient(135deg,var(--p3),var(--p1)); color:#fff; padding:8px 14px; border-radius:999px; cursor:pointer; font-size:.88rem; text-decoration:none; white-space:nowrap; }
+  textarea { width:100%; min-height:110px; resize:vertical; padding:12px; border:1px solid var(--bd); border-radius:12px; background:var(--bg); color:var(--fg); font:inherit; }
+  .actions { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+  .stats { display:flex; gap:12px; margin-top:20px; }
+  .stat { flex:1; text-align:center; }
+  .stat b { display:block; font-size:1.8rem; color:var(--p3); }
+  .stat span { color:var(--mut); font-size:.85rem; }
+  .link { display:flex; gap:8px; margin-top:10px; }
+  .link input { flex:1; padding:10px 14px; border:1px solid var(--bd); border-radius:999px; background:var(--bg); color:var(--fg); }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="notes" aria-hidden="true">♪ ♫ ♪</div>
+  <h1>Aprenda inglés y cantar cantando</h1>
+  <p>Escoge una canción de karaoke, canta y aprende palabras nuevas.</p>
+</header>
+
+<div class="wrap">
+  <div class="search">
+    <input id="q" type="search" placeholder="🔎 Busca una canción o un artista…" autocomplete="off" aria-label="Buscar canción o artista">
+    <ul id="sug" role="listbox"></ul>
+  </div>
+  <div class="chips" id="chips"></div>
+  <p class="msg" id="msg"></p>
+  <div id="res"></div>
+
+  <div class="grid">
+    <section class="card player">
+      <h2>🎤 Video activo</h2>
+      <div id="activo"></div>
+    </section>
+    <section class="card">
+      <h2>📝 Palabras nuevas</h2>
+      <textarea id="notas" placeholder="Escribe aquí palabras o frases que aprendas de esta canción…" aria-label="Palabras nuevas"></textarea>
+      <div class="stats">
+        <div class="stat"><b id="nCanc">0</b><span>canciones</span></div>
+        <div class="stat"><b id="nPal">0</b><span>palabras</span></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:20px">
+    <h2>🕘 Mis canciones</h2>
+    <div id="hist"></div>
+  </section>
+</div>
+
+<script>
+// Skill /videoscurso: el video activo es único para todo el programa.
+// Opcional: clave de YouTube Data API v3 para listar resultados aquí mismo.
+const YT_API_KEY = "";
+const KEY = "videoscurso.activo", HKEY = "videoscurso.historial", NKEY = "videoscurso.notas";
+
+const $ = id => document.getElementById(id);
+const rd = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const q = $("q"), sug = $("sug");
+let timer, idx = -1, items = [];
+
+["Perfect Ed Sheeran", "Let It Be Beatles", "Shallow Lady Gaga", "Someone Like You Adele", "Yesterday Beatles"]
+  .forEach(t => { const b = document.createElement("button"); b.className = "chip"; b.textContent = t; b.onclick = () => choose(t); $("chips").append(b); });
+
+// ---- Sugerencias en vivo ----
+function suggest(text) {
+  const cb = "cb" + Date.now(), s = document.createElement("script");
+  const done = () => { delete window[cb]; s.remove(); };
+  window[cb] = d => { items = (d[1] || []).slice(0, 8).map(x => x[0]); render(); done(); };
+  s.onerror = () => { done(); items = []; render(); };
+  s.src = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&hl=en&q=${encodeURIComponent(text)}&jsonp=${cb}`;
+  document.head.append(s);
+}
+function render() {
+  idx = -1; sug.innerHTML = "";
+  items.forEach(t => {
+    const li = document.createElement("li"); li.textContent = t; li.role = "option";
+    li.onmousedown = e => { e.preventDefault(); choose(t); };
+    sug.append(li);
+  });
+}
+q.addEventListener("input", () => {
+  clearTimeout(timer);
+  const v = q.value.trim();
+  if (v.length < 2) { items = []; render(); return; }
+  timer = setTimeout(() => suggest(v), 200);
+});
+q.addEventListener("keydown", e => {
+  const lis = [...sug.children];
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    idx = (idx + (e.key === "ArrowDown" ? 1 : -1) + lis.length) % (lis.length || 1);
+    lis.forEach((l, i) => l.classList.toggle("on", i === idx));
+  } else if (e.key === "Enter") choose(idx >= 0 ? items[idx] : q.value.trim());
+  else if (e.key === "Escape") { items = []; render(); }
+});
+document.addEventListener("click", e => { if (!e.target.closest(".search")) { items = []; render(); } });
+
+// ---- Búsqueda ----
+async function choose(text) {
+  if (!text) return;
+  q.value = text; items = []; render();
+  const term = /karaoke/i.test(text) ? text : text + " karaoke";
+  const res = $("res"); res.innerHTML = "";
+  if (!YT_API_KEY) {
+    const url = "https://www.youtube.com/results?search_query=" + encodeURIComponent(term);
+    $("msg").innerHTML = `<a href="${url}" target="_blank" rel="noopener">Abre los resultados en YouTube</a>, copia el enlace del video y pégalo aquí:`;
+    res.innerHTML = `<div class="link"><input id="link" placeholder="https://www.youtube.com/watch?v=…" aria-label="Enlace del video"><button class="go" id="use">Usar</button></div>`;
+    $("use").onclick = () => {
+      const m = $("link").value.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/);
+      if (m) activar({ id: m[1], titulo: text }); else $("msg").textContent = "Ese enlace de YouTube no es válido.";
+    };
+    return;
+  }
+  $("msg").textContent = "Buscando…";
+  try {
+    const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&videoEmbeddable=true&q=${encodeURIComponent(term)}&key=${YT_API_KEY}`);
+    const d = await r.json();
+    $("msg").textContent = d.items?.length ? "Escoge el video que quieres trabajar:" : "Sin resultados.";
+    (d.items || []).forEach(v => {
+      const row = document.createElement("div"); row.className = "row";
+      row.innerHTML = `<img src="${esc(v.snippet.thumbnails.medium.url)}" alt=""><div class="t"><b>${esc(v.snippet.title)}</b><span>${esc(v.snippet.channelTitle)}</span></div>`;
+      const b = document.createElement("button"); b.className = "go"; b.textContent = "Cantar este";
+      b.onclick = () => activar({ id: v.id.videoId, titulo: v.snippet.title, canal: v.snippet.channelTitle });
+      row.append(b); res.append(row);
+    });
+  } catch { $("msg").textContent = "Error al buscar. Revisa la clave de API."; }
+}
+
+// ---- Video activo ----
+function activar(v) {
+  v.url = "https://www.youtube.com/watch?v=" + v.id;
+  v.seleccionado_en = new Date().toISOString();
+  wr(KEY, v);
+  const h = rd(HKEY, []).filter(x => x.id !== v.id);
+  h.unshift(v); wr(HKEY, h.slice(0, 20));
+  $("res").innerHTML = ""; $("msg").textContent = "";
+  pintar();
+}
+function pintar() {
+  const v = rd(KEY, null), notas = rd(NKEY, {});
+  $("activo").innerHTML = v
+    ? `<iframe src="https://www.youtube.com/embed/${esc(v.id)}" allowfullscreen title="Video activo"></iframe>
+       <p style="margin:10px 0 0"><b>${esc(v.titulo)}</b></p>
+       <div class="actions"><a class="go" href="${esc(v.url)}" target="_blank" rel="noopener">Abrir en YouTube</a></div>`
+    : `<div class="empty"><div class="big">🎶</div>Busca arriba una canción<br>y empieza a cantar.</div>`;
+  $("notas").value = v ? (notas[v.id] || "") : "";
+  $("notas").disabled = !v;
+  const h = rd(HKEY, []);
+  $("hist").innerHTML = h.length ? "" : `<div class="empty">Aquí verás las canciones que has trabajado.</div>`;
+  h.forEach(x => {
+    const row = document.createElement("div"); row.className = "row";
+    row.innerHTML = `<img src="https://i.ytimg.com/vi/${esc(x.id)}/mqdefault.jpg" alt=""><div class="t"><b>${esc(x.titulo)}</b><span>${esc(x.canal || "")}</span></div>`;
+    const b = document.createElement("button"); b.className = "go"; b.textContent = "Volver a cantar";
+    b.onclick = () => activar(x);
+    row.append(b); $("hist").append(row);
+  });
+  $("nCanc").textContent = h.length;
+  $("nPal").textContent = Object.values(notas).join("\n").split(/\n+/).filter(s => s.trim()).length;
+}
+$("notas").addEventListener("input", () => {
+  const v = rd(KEY, null); if (!v) return;
+  const n = rd(NKEY, {}); n[v.id] = $("notas").value; wr(NKEY, n);
+  $("nPal").textContent = Object.values(n).join("\n").split(/\n+/).filter(s => s.trim()).length;
+});
+pintar();
+</script>
+</body>
+</html>

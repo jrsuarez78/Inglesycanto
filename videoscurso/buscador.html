@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Videos de karaoke</title>
+<style>
+  :root { --bg:#fff; --fg:#1a1a1a; --mut:#666; --bd:#d9d9d9; --ac:#c4302b; --hov:#f3f3f3; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161616; --fg:#eee; --mut:#999; --bd:#333; --hov:#242424; } }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--fg); font:16px system-ui,sans-serif; max-width:820px; margin-inline:auto; }
+  h1 { font-size:1.3rem; }
+  .box { position:relative; }
+  input { width:100%; box-sizing:border-box; padding:12px; font-size:1rem; border:1px solid var(--bd); border-radius:8px; background:var(--bg); color:var(--fg); }
+  #sug { position:absolute; left:0; right:0; top:100%; margin:4px 0 0; padding:0; list-style:none; background:var(--bg); border:1px solid var(--bd); border-radius:8px; z-index:5; overflow:hidden; }
+  #sug li { padding:10px 12px; cursor:pointer; }
+  #sug li.on, #sug li:hover { background:var(--hov); }
+  #sug:empty { display:none; }
+  .res { display:grid; gap:10px; margin-top:16px; }
+  .it { display:flex; gap:10px; border:1px solid var(--bd); border-radius:8px; padding:8px; align-items:center; }
+  .it img { width:120px; border-radius:4px; }
+  .it button, .btn { background:var(--ac); color:#fff; border:0; border-radius:6px; padding:8px 12px; cursor:pointer; margin-left:auto; text-decoration:none; font-size:.9rem; }
+  .mut { color:var(--mut); font-size:.9rem; }
+  iframe { width:100%; aspect-ratio:16/9; border:0; border-radius:8px; margin-top:16px; }
+</style>
+</head>
+<body>
+<h1>🎤 Videos de karaoke en inglés</h1>
+<div class="box">
+  <input id="q" type="search" placeholder="Escribe canción o artista…" autocomplete="off" aria-label="Buscar canción o artista">
+  <ul id="sug" role="listbox"></ul>
+</div>
+<p class="mut" id="msg"></p>
+<div class="res" id="res"></div>
+<div id="activo"></div>
+
+<script>
+// Opcional: clave de YouTube Data API v3 para listar resultados aquí mismo.
+// Sin clave, al escoger una sugerencia se abre la búsqueda en YouTube y pegas el enlace del video.
+const YT_API_KEY = "";
+
+const $ = id => document.getElementById(id);
+const q = $("q"), sug = $("sug");
+let timer, idx = -1, items = [];
+
+function store(get, v) {
+  try { return get ? JSON.parse(localStorage.getItem("videos.activo")) : localStorage.setItem("videos.activo", JSON.stringify(v)); } catch { return null; }
+}
+
+// Sugerencias en vivo (endpoint de autocompletado de YouTube, vía JSONP)
+function suggest(text) {
+  const cb = "cb" + Date.now();
+  const s = document.createElement("script");
+  window[cb] = data => { items = (data[1] || []).slice(0, 8).map(x => x[0]); render(); cleanup(); };
+  const cleanup = () => { delete window[cb]; s.remove(); };
+  s.onerror = () => { cleanup(); items = [text]; render(); };
+  s.src = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&hl=en&q=${encodeURIComponent(text)}&jsonp=${cb}`;
+  document.head.append(s);
+}
+
+function render() {
+  idx = -1;
+  sug.innerHTML = "";
+  items.forEach((t, i) => {
+    const li = document.createElement("li");
+    li.textContent = t; li.role = "option";
+    li.onmousedown = e => { e.preventDefault(); choose(t); };
+    sug.append(li);
+  });
+}
+
+q.addEventListener("input", () => {
+  clearTimeout(timer);
+  const v = q.value.trim();
+  if (v.length < 2) { items = []; render(); return; }
+  timer = setTimeout(() => suggest(v), 200);
+});
+
+q.addEventListener("keydown", e => {
+  const lis = [...sug.children];
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    idx = (idx + (e.key === "ArrowDown" ? 1 : -1) + lis.length) % (lis.length || 1);
+    lis.forEach((l, i) => l.classList.toggle("on", i === idx));
+  } else if (e.key === "Enter") {
+    choose(idx >= 0 ? items[idx] : q.value.trim());
+  } else if (e.key === "Escape") { items = []; render(); }
+});
+document.addEventListener("click", e => { if (!e.target.closest(".box")) { items = []; render(); } });
+
+async function choose(text) {
+  if (!text) return;
+  q.value = text; items = []; render();
+  const term = /karaoke/i.test(text) ? text : text + " karaoke";
+  const res = $("res"); res.innerHTML = "";
+  if (!YT_API_KEY) {
+    const url = "https://www.youtube.com/results?search_query=" + encodeURIComponent(term);
+    $("msg").innerHTML = `Abre <a href="${url}" target="_blank" rel="noopener">los resultados en YouTube</a>, copia el enlace del video que quieras y pégalo aquí:`;
+    res.innerHTML = `<div class="it"><input id="link" placeholder="https://www.youtube.com/watch?v=…"><button id="use">Usar</button></div>`;
+    $("use").onclick = () => {
+      const m = $("link").value.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/);
+      m ? activar({ id: m[1], titulo: text }) : ($("msg").textContent = "Enlace de YouTube no válido.");
+    };
+    return;
+  }
+  $("msg").textContent = "Buscando…";
+  try {
+    const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&videoEmbeddable=true&q=${encodeURIComponent(term)}&key=${YT_API_KEY}`);
+    const d = await r.json();
+    $("msg").textContent = d.items?.length ? "Escoge el video que quieres trabajar:" : "Sin resultados.";
+    (d.items || []).forEach(v => {
+      const el = document.createElement("div"); el.className = "it";
+      const t = document.createElement("div");
+      t.innerHTML = `<strong></strong><br><span class="mut"></span>`;
+      t.firstChild.textContent = v.snippet.title; t.lastChild.textContent = v.snippet.channelTitle;
+      el.innerHTML = `<img src="${v.snippet.thumbnails.medium.url}" alt="">`;
+      el.append(t);
+      const b = document.createElement("button"); b.textContent = "Trabajar este";
+      b.onclick = () => activar({ id: v.id.videoId, titulo: v.snippet.title, canal: v.snippet.channelTitle });
+      el.append(b); res.append(el);
+    });
+  } catch { $("msg").textContent = "Error al buscar. Revisa la clave de API."; }
+}
+
+function activar(v) {
+  v.url = "https://www.youtube.com/watch?v=" + v.id;
+  v.seleccionado_en = new Date().toISOString();
+  store(false, v);
+  $("res").innerHTML = ""; $("msg").textContent = "";
+  mostrar(v);
+}
+
+function mostrar(v) {
+  if (!v) return;
+  $("activo").innerHTML = `<h2 style="font-size:1.1rem;margin-top:20px">Video activo</h2>
+    <p></p><iframe src="https://www.youtube.com/embed/${v.id}" allowfullscreen title="Video activo"></iframe>
+    <p><a class="btn" style="margin:0" href="${v.url}" target="_blank" rel="noopener">Abrir en YouTube</a></p>`;
+  $("activo").querySelector("p").textContent = v.titulo;
+}
+mostrar(store(true));
+</script>
+</body>
+</html>
