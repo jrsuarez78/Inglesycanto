@@ -167,9 +167,11 @@ async function choose(text) {
     if (d.error) {
       // La clave se conserva: un 403 suele ser la restricción de Google tardando en aplicarse o la cuota diaria.
       const motivo = d.error.errors?.[0]?.reason || "";
-      if (motivo === "keyInvalid") { try { localStorage.removeItem(APIKEY); } catch {} }
-      $("msg").textContent = "YouTube respondió con un error (" + (motivo || d.error.code) + "). " +
-        (motivo === "keyInvalid" ? "La clave no es válida; pégala de nuevo." : "Tu clave sigue guardada. Si acabas de configurarla, espera unos minutos y vuelve a intentar.");
+      const malaClave = motivo === "keyInvalid" || /api key (not valid|expired)/i.test(d.error.message || "");
+      if (malaClave) { try { localStorage.removeItem(APIKEY); } catch {} }
+      $("msg").textContent = malaClave
+        ? "La clave guardada no es válida. Vuelve a buscar y pégala de nuevo, completa y sin espacios."
+        : "YouTube respondió: " + (d.error.message || motivo || d.error.code) + " Tu clave sigue guardada; si acabas de configurarla, espera unos minutos.";
       return;
     }
     // Solo karaoke: el título o el canal debe indicarlo.
