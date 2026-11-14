@@ -78,7 +78,9 @@
       <h2>Traducir</h2>
       <p class="mut" style="margin:0"><b>Recomendado: Claude.</b> Entrega una traducción natural, como la entendería un estadounidense, y explica modismos y slang. La opción automática es literal y puede sonar rara.</p>
       <div class="row">
-        <button class="go" id="auto">⚡ Traducir automáticamente</button>
+        <button class="go" id="nav" hidden>🧠 Traducir con el navegador (mejor contexto)</button>
+        <button class="go sec" id="auto">⚡ Traducción rápida (borrador)</button>
+        <button class="go sec" id="borrar">🗑 Borrar traducción</button>
         <button class="go sec" id="copiar">📋 Copiar para traducir con Claude</button>
         <button class="go sec" id="copiar2">📋 Copiar para que Claude explique el significado</button>
         <a class="go sec" href="https://claude.ai/new" target="_blank" rel="noopener">Abrir claude.ai</a>
@@ -231,7 +233,7 @@ function pintar() {
     d.append(en, es); cont.append(d);
   });
   const f = trad().fuente;
-  $("fuente").textContent = hechas ? `Traducción ${f === "claude" ? "hecha con Claude" : f === "manual" ? "corregida a mano" : "automática: es un borrador literal, corrige las frases que suenen raras tocándolas"} · ${hechas} de ${ne().length} frases.` : "Aún no hay traducción. Usa uno de los botones de arriba.";
+  $("fuente").textContent = hechas ? `Traducción ${f === "claude" ? "hecha con Claude" : f === "manual" ? "corregida a mano" : f === "nav" ? "del navegador (automática, con contexto de estrofa; revisa los modismos)" : "automática: es un borrador literal, corrige las frases que suenen raras tocándolas"} · ${hechas} de ${ne().length} frases.` : "Aún no hay traducción. Usa uno de los botones de arriba.";
 }
 
 // ---- Traducción automática (MyMemory, gratuita y con límite diario) ----
@@ -260,6 +262,30 @@ $("auto").onclick = async () => {
   $("msg").textContent = fallo ? fallo + (listas ? ` (se tradujeron ${listas} frases)` : "") : "Listo. Revisa las frases: la traducción automática puede equivocarse con modismos.";
   $("auto").disabled = false;
 };
+
+// ---- Traductor integrado del navegador (Chrome/Edge recientes): traduce por estrofas para conservar el contexto ----
+if ("Translator" in self) $("nav").hidden = false;
+$("nav").onclick = async () => {
+  const btn = $("nav"); btn.disabled = true; $("barra").hidden = false; $("prog").style.width = "0";
+  try {
+    const par = { sourceLanguage: "en", targetLanguage: "es" };
+    if ((await Translator.availability(par)) === "unavailable") throw new Error("Tu navegador no tiene el par inglés→español disponible.");
+    $("msg").textContent = "Preparando el traductor (la primera vez puede descargar un modelo)…";
+    const tr = await Translator.create({ ...par, monitor(m) { m.addEventListener("downloadprogress", e => { $("prog").style.width = Math.round(e.loaded * 100) + "%"; }); } });
+    const estrofas = []; let cur = [];
+    lineas().forEach(s => { if (s) cur.push(s); else if (cur.length) { estrofas.push(cur); cur = []; } }); if (cur.length) estrofas.push(cur);
+    const out = []; let hechas = 0; const total = ne().length;
+    for (const g of estrofas) {
+      let res = (await tr.translate(g.join("\n"))).split("\n").map(s => s.trim()).filter(Boolean);
+      if (res.length !== g.length) { res = []; for (const s of g) res.push((await tr.translate(s)).trim()); } // si no coinciden las líneas, frase por frase
+      res.forEach(r => out.push(r)); hechas += g.length; $("prog").style.width = Math.round(100 * hechas / total) + "%";
+    }
+    guardarTrad(out, "nav"); pintar();
+    $("msg").textContent = "Listo. Es traducción automática con contexto de estrofa; para el sentido natural y los modismos, usa Claude. Toca cualquier frase para corregirla.";
+  } catch (e) { $("msg").textContent = "No pude usar el traductor del navegador: " + (e && e.message ? e.message : "error desconocido") + ". Usa la opción de Claude."; }
+  btn.disabled = false;
+};
+$("borrar").onclick = () => { const t = rd(TKEY, {}); delete t[V.id]; wr(TKEY, t); pintar(); $("msg").textContent = "Traducción borrada."; };
 
 // ---- Traducción con Claude (claude.ai): copiar y pegar ----
 $("copiar").onclick = async () => {
