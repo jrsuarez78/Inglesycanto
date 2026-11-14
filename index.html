@@ -165,8 +165,11 @@ async function choose(text) {
     const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=25&videoEmbeddable=true&videoSyndicated=true&videoCategoryId=10&relevanceLanguage=en&q=${encodeURIComponent(term)}&key=${encodeURIComponent(key)}`);
     const d = await r.json();
     if (d.error) {
-      $("msg").textContent = "La clave no funcionó: " + (d.error.message || "error de YouTube");
-      if (d.error.code === 400 || d.error.code === 403) { try { localStorage.removeItem(APIKEY); } catch {} }
+      // La clave se conserva: un 403 suele ser la restricción de Google tardando en aplicarse o la cuota diaria.
+      const motivo = d.error.errors?.[0]?.reason || "";
+      if (motivo === "keyInvalid") { try { localStorage.removeItem(APIKEY); } catch {} }
+      $("msg").textContent = "YouTube respondió con un error (" + (motivo || d.error.code) + "). " +
+        (motivo === "keyInvalid" ? "La clave no es válida; pégala de nuevo." : "Tu clave sigue guardada. Si acabas de configurarla, espera unos minutos y vuelve a intentar.");
       return;
     }
     // Solo karaoke: el título o el canal debe indicarlo.
