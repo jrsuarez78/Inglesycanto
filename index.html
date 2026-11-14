@@ -29,6 +29,7 @@
   .chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:16px 0 0; }
   .chip { border:1px solid var(--bd); background:var(--card); color:var(--fg); padding:6px 14px; border-radius:999px; cursor:pointer; font-size:.9rem; }
   .chip:hover { background:var(--hov); }
+  .chip.on { background:var(--p3); border-color:var(--p3); color:#fff; }
   .msg { text-align:center; color:var(--mut); margin:14px 0 0; min-height:1.5em; }
   .grid { display:grid; grid-template-columns:1.6fr 1fr; gap:20px; margin-top:20px; }
   @media (max-width:760px) { .grid { grid-template-columns:1fr; } }
@@ -81,6 +82,8 @@
     <input id="q" type="search" placeholder="🔎 Busca una canción o un artista…" autocomplete="off" aria-label="Buscar canción o artista">
     <ul id="sug" role="listbox"></ul>
   </div>
+  <div class="chips" id="niveles" role="tablist" aria-label="Nivel de inglés"></div>
+  <p class="msg" id="nivdesc" style="margin-top:8px"></p>
   <div class="chips" id="chips"></div>
   <p class="msg" id="msg"></p>
   <div id="res"></div>
@@ -135,8 +138,30 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt
 const q = $("q"), sug = $("sug");
 let timer, idx = -1, items = [];
 
-["Perfect Ed Sheeran", "Let It Be Beatles", "Shallow Lady Gaga", "Someone Like You Adele", "Yesterday Beatles"]
-  .forEach(t => { const b = document.createElement("button"); b.className = "chip"; b.textContent = t; b.onclick = () => choose(t); $("chips").append(b); });
+// Canciones sugeridas por nivel (clasificación orientativa: velocidad, vocabulario y claridad de la letra).
+const NIVELES = [
+  { id: "A1", nombre: "Nivel 1 · Principiante", desc: "Letra simple, ritmo lento y mucha repetición. Ideal para empezar.",
+    canciones: ["Twinkle Twinkle Little Star", "You Are My Sunshine", "Happy Birthday", "Yesterday Beatles", "Let It Be Beatles", "Imagine John Lennon", "What a Wonderful World Louis Armstrong", "Stand By Me Ben E King"] },
+  { id: "A2", nombre: "Nivel 2 · Básico", desc: "Frases cortas y cotidianas con ritmo calmado.",
+    canciones: ["Count On Me Bruno Mars", "Just the Way You Are Bruno Mars", "Love Yourself Justin Bieber", "Perfect Ed Sheeran", "Photograph Ed Sheeran", "Thinking Out Loud Ed Sheeran", "Someone Like You Adele", "Hello Adele"] },
+  { id: "B1", nombre: "Nivel 3 · Intermedio", desc: "Más vocabulario, expresiones y velocidad media.",
+    canciones: ["Shallow Lady Gaga", "Rolling in the Deep Adele", "Viva la Vida Coldplay", "Don't Stop Believin Journey", "Blank Space Taylor Swift", "Counting Stars OneRepublic", "Sweet Child O Mine Guns N Roses", "Hey Jude Beatles"] },
+  { id: "B2", nombre: "Nivel 4 · Avanzado", desc: "Letras largas, frases rápidas, lenguaje figurado y modismos.",
+    canciones: ["Bohemian Rhapsody Queen", "Piano Man Billy Joel", "Hotel California Eagles", "Total Eclipse of the Heart Bonnie Tyler", "Mr Brightside The Killers", "Lose Yourself Eminem", "We Didn't Start the Fire Billy Joel", "Stairway to Heaven Led Zeppelin"] }
+];
+let nivelActual = (() => { try { return Math.min(+localStorage.getItem("videoscurso.nivel") || 0, NIVELES.length - 1); } catch { return 0; } })();
+function pintarNiveles() {
+  const nv = NIVELES[nivelActual];
+  $("niveles").innerHTML = ""; $("chips").innerHTML = "";
+  NIVELES.forEach((n, i) => {
+    const b = document.createElement("button"); b.className = "chip" + (i === nivelActual ? " on" : ""); b.textContent = n.nombre; b.role = "tab"; b.ariaSelected = String(i === nivelActual);
+    b.onclick = () => { nivelActual = i; try { localStorage.setItem("videoscurso.nivel", i); } catch {} pintarNiveles(); };
+    $("niveles").append(b);
+  });
+  $("nivdesc").textContent = nv.desc;
+  nv.canciones.forEach(t => { const b = document.createElement("button"); b.className = "chip"; b.textContent = t; b.onclick = () => choose(t); $("chips").append(b); });
+}
+pintarNiveles();
 
 // ---- Sugerencias en vivo ----
 function suggest(text) {
@@ -161,6 +186,7 @@ q.addEventListener("input", () => {
   if (v.length < 2) { items = []; render(); return; }
   timer = setTimeout(() => suggest(v), 200);
 });
+q.addEventListener("focus", () => { if (!q.value.trim()) { items = NIVELES[nivelActual].canciones.slice(0, 8); render(); } });
 q.addEventListener("keydown", e => {
   const lis = [...sug.children];
   if (e.key === "ArrowDown" || e.key === "ArrowUp") {
