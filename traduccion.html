@@ -243,8 +243,14 @@ $("auto").onclick = async () => {
       const k = i++;
       try {
         const r = await fetch("https://api.mymemory.translated.net/get?langpair=en|es&q=" + encodeURIComponent(L[k]));
-        const d = await r.json(), t = d.responseData && d.responseData.translatedText;
-        if (Number(d.responseStatus) !== 200 || !t || /MYMEMORY WARNING/i.test(t)) { fallo = "Se alcanzó el límite diario del traductor gratuito. Inténtalo mañana o usa la opción de Claude."; return; }
+        const d = await r.json(), principal = d.responseData && d.responseData.translatedText;
+        if (Number(d.responseStatus) !== 200 || !principal || /MYMEMORY WARNING/i.test(principal)) { fallo = "Se alcanzó el límite diario del traductor gratuito. Inténtalo mañana o usa la opción de Claude."; return; }
+        // El resultado "principal" a veces viene de una memoria de traducción pública y es de otra frase parecida.
+        // Preferimos: coincidencia exacta revisada > traducción automática (MT!) > el resultado principal.
+        const ms = d.matches || [];
+        const exacta = ms.find(m => Number(m.match) >= 0.99 && Number(m.quality) >= 70);
+        const mt = ms.find(m => m["created-by"] === "MT!");
+        const t = (exacta || mt || { translation: principal }).translation;
         out[k] = dec(t); listas++; $("prog").style.width = Math.round(100 * listas / L.length) + "%";
       } catch { fallo = "No pude conectar con el traductor. Revisa tu internet."; return; }
     }
