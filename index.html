@@ -52,6 +52,9 @@
   .stat b { display:block; font-size:1.8rem; color:var(--p3); }
   .stat span { color:var(--mut); font-size:.85rem; }
   .link { display:flex; gap:8px; margin-top:10px; }
+  .nivelbox { margin-top:12px; padding:10px 14px; border-radius:14px; background:var(--hov); font-size:.92rem; }
+  .nivelbox b { color:var(--p3); font-size:1rem; }
+  .nivelbox span { display:block; color:var(--mut); font-size:.85rem; margin-top:2px; }
   .score { font-size:3rem; font-weight:700; line-height:1; }
   .res2 { display:flex; gap:16px; align-items:center; margin:14px 0 4px; }
   #canto h3 { margin:18px 0 6px; font-size:1rem; }
@@ -92,6 +95,7 @@
     <section class="card player">
       <h2>🎤 Video activo</h2>
       <div id="activo"></div>
+      <div id="nivelCancion"></div>
     </section>
     <section class="card">
       <h2>📝 Palabras nuevas</h2>
@@ -106,6 +110,7 @@
   <section class="card" style="margin-top:20px" id="canto">
     <h2>🎙️ Mi canto</h2>
     <p class="mut" style="margin:0 0 10px">Usa audífonos: así el micrófono no capta la música del karaoke. Tu voz se graba y se analiza en este navegador (Chrome o Edge).</p>
+    <p class="mut" id="estadoLetra" aria-live="polite" style="margin:0 0 8px"></p>
     <label class="mut" for="letra">Letra de la canción (pégala para analizar palabra por palabra)</label>
     <textarea id="letra" placeholder="Pega aquí la letra en inglés…"></textarea>
     <div class="actions">
@@ -238,7 +243,7 @@ async function choose(text) {
       const row = document.createElement("div"); row.className = "row";
       row.innerHTML = `<img src="${esc(v.snippet.thumbnails.medium.url)}" alt=""><div class="t"><b>${esc(v.snippet.title)}</b><span>${esc(v.snippet.channelTitle)}</span></div>`;
       const b = document.createElement("button"); b.className = "go"; b.textContent = "Cantar este";
-      b.onclick = () => activar({ id: v.id.videoId, titulo: v.snippet.title, canal: v.snippet.channelTitle });
+      b.onclick = () => activar({ id: v.id.videoId, titulo: v.snippet.title, canal: v.snippet.channelTitle, consulta: text });
       row.append(b); res.append(row);
     });
   } catch { $("msg").textContent = "Error al buscar. Revisa la clave de API."; }
@@ -478,13 +483,75 @@ async function terminar() {
 }
 
 $("bCantar").onclick = () => (cantando ? terminar() : empezar());
-$("letra").addEventListener("input", () => { const v = rd(KEY, null); if (!v) return; const l = rd(LKEY, {}); l[v.id] = $("letra").value; wr(LKEY, l); });
+$("letra").addEventListener("input", () => {
+  const v = rd(KEY, null); if (!v) return;
+  const l = rd(LKEY, {}); l[v.id] = $("letra").value; wr(LKEY, l);
+  clearTimeout(window._nt); window._nt = setTimeout(() => actualizarNivel(v, $("letra").value), 500);
+});
 $("result").addEventListener("click", e => { const b = e.target.closest("[data-w]"); if (b) abrirPractica(b.dataset.w); });
 $("sesiones").addEventListener("click", async e => {
   const a = e.target.closest("[data-aud]"), ver = e.target.closest("[data-ver]");
   if (a) { const b = await audioGet(a.dataset.aud); if (!b) { a.textContent = "Sin audio"; return; } new Audio(URL.createObjectURL(b)).play(); }
   if (ver) { const s = getSesiones().find(x => String(x.id) === ver.dataset.ver); if (s) { mostrarResultado(s); $("result").scrollIntoView({ behavior: "smooth", block: "nearest" }); } }
 });
+
+// ---- Letra automática (lyrics.ovh) y nivel de dificultad ----
+const COMUNES = new Set(`i me my mine myself you your yours we us our they them their he him his she her it its a an the and or but if so as at by for from in into of off on out over to up with without about after again all also always am are around away back be because been before being between both can come could day did do does done down each even ever every feel feeling find first get give go going gone good got had has have hear heard here how just keep know last leave left let life light like little live long look love made make many may maybe more most much must need never new night no not now of oh old once one only other over own people really right same say see seem should since some something still such take tell than that then there these thing things think this those though through time too try turn under until upon use want was way well were what when where which while who why will wish with would yeah year yes yet baby heart eyes hand hands home man woman girl boy world word words work call cry dance dream dreams fall fire friend friends god hold hurt kiss lost mind money morning music name once play run sing song stand stay stop sun sweet talk tonight tomorrow walk wait water whole young away another believe better big bring beautiful different door end face far fly forever free front gave gets happy hard head high hope hear however kind knew late lie lines lonely lot mean met move nothing open pain place put rain reason red remember room sad save second sky sleep smile soul start story street strong sure taking tears three today together told took town true two wall warm week while whisper wonder wonderful wrong years`.split(/\s+/));
+const COLOQUIAL = /^(gonna|wanna|gotta|cause|ain't|'bout|'til|lemme|gimme|y'all|nothin|somethin|comin|goin|lovin|thinkin|feelin|dunno|kinda|outta|tryna)$/;
+
+function estimarNivel(letra) {
+  const W = norm(letra); if (W.length < 25) return null;
+  const U = new Set(W);
+  const raras = W.filter(w => w.length > 3 && !COMUNES.has(w)).length / W.length;
+  const coloq = W.filter(w => COLOQUIAL.test(w)).length / W.length;
+  const rep = 1 - U.size / W.length;
+  const pts = raras * 100 + coloq * 80 + (W.length > 350 ? 4 : 0) - rep * 15;
+  const nivel = pts < 8 ? NIVELES[0] : pts < 15 ? NIVELES[1] : pts < 24 ? NIVELES[2] : NIVELES[3];
+  const razones = [`${Math.round(raras * 100)}% de palabras poco comunes`, `${W.length} palabras en la letra`];
+  if (rep > 0.5) razones.push("mucha repetición (ayuda a aprender)");
+  if (coloq > 0.01) razones.push("lenguaje coloquial (gonna, wanna, ’cause…)");
+  return { nivel, razones };
+}
+
+const CATALOGO = {};
+NIVELES.forEach(n => n.canciones.forEach(c => { CATALOGO[norm(c).join(" ")] = n; }));
+function nivelConocido(consulta) {
+  const q = norm(consulta || "").join(" "); if (q.length < 4) return null;
+  return CATALOGO[q] || null;
+}
+
+function actualizarNivel(v, letra) {
+  const conocido = nivelConocido(v.consulta), est = letra && letra.trim() ? estimarNivel(letra) : null;
+  const n = conocido || (est && est.nivel);
+  if (!n) { $("nivelCancion").innerHTML = `<div class="nivelbox">Nivel de dificultad: <b>sin estimar</b><span>Necesito la letra para calcularlo.</span></div>`; return; }
+  const origen = conocido ? "Según el catálogo por niveles" + (est ? " · " + est.razones.join(", ") : "") : "Estimado según la letra · " + est.razones.join(", ");
+  $("nivelCancion").innerHTML = `<div class="nivelbox">Nivel de dificultad: <b>${esc(n.nombre)}</b><span>${esc(n.desc)}</span><span>${esc(origen)}</span></div>`;
+}
+
+const estado = t => { $("estadoLetra").textContent = t; };
+const limpiarTitulo = t => String(t).replace(/\(.*?\)|\[.*?\]/g, " ").replace(/karaoke|instrumental|lyrics|version|official|video|sing along|backing track|originally performed by|in the style of/gi, " ").replace(/[|\-–—_"]/g, " ").replace(/\s+/g, " ").trim();
+
+async function buscarLetra(v) {
+  const guardada = rd(LKEY, {})[v.id];
+  if (guardada && guardada.trim()) { actualizarNivel(v, guardada); estado("Usando la letra guardada de esta canción."); return; }
+  estado("Buscando la letra…"); actualizarNivel(v, "");
+  try {
+    const consulta = limpiarTitulo(v.consulta || v.titulo);
+    const s = await (await fetch("https://api.lyrics.ovh/suggest/" + encodeURIComponent(consulta))).json();
+    const c = s.data && s.data[0]; if (!c) throw new Error("sin resultado");
+    const d = await (await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(c.artist.name)}/${encodeURIComponent(c.title)}`)).json();
+    if (!d.lyrics) throw new Error("sin letra");
+    const act = rd(KEY, null); if (!act || act.id !== v.id) return; // cambiaste de canción mientras buscaba
+    const letra = d.lyrics.replace(/\r/g, "").trim();
+    const l = rd(LKEY, {}); l[v.id] = letra; wr(LKEY, l);
+    $("letra").value = letra;
+    estado(`Letra encontrada: «${c.title}» de ${c.artist.name}. Revisa que sea la misma canción y versión que cantas.`);
+    actualizarNivel(v, letra);
+  } catch {
+    const act = rd(KEY, null); if (!act || act.id !== v.id) return;
+    estado("No encontré la letra automáticamente. Pégala abajo para analizar tu pronunciación.");
+  }
+}
 
 function pintarCanto() {
   const v = rd(KEY, null);
@@ -494,6 +561,7 @@ function pintarCanto() {
   if (v.id !== ultimoVideo) {
     ultimoVideo = v.id; $("letra").value = rd(LKEY, {})[v.id] || ""; $("prac").innerHTML = ""; $("result").innerHTML = ""; $("vivo").textContent = "";
     const l = deVideo(v.id); if (l.length) mostrarResultado(l[l.length - 1]);
+    buscarLetra(v);
   }
   pintarSesiones(v);
 }
