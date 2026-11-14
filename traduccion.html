@@ -85,6 +85,11 @@
         <button class="go sec" id="copiar2">📋 Copiar para que Claude explique el significado</button>
         <a class="go sec" href="https://claude.ai/new" target="_blank" rel="noopener">Abrir claude.ai</a>
       </div>
+      <div class="row">
+        <label class="mut" for="variante">Español de:</label>
+        <select id="variante" aria-label="Variante del español"><option value="neutro">Neutro latinoamericano</option><option value="mexico">México</option><option value="colombia">Colombia</option><option value="argentina">Argentina</option><option value="chile">Chile</option><option value="espana">España</option></select>
+        <span class="mut">Se usa en el texto para Claude y en la voz.</span>
+      </div>
       <div class="barra" id="barra" hidden><i id="prog"></i></div>
       <p class="mut" id="msg" aria-live="polite" style="margin:8px 0 0"></p>
       <details style="margin-top:10px">
@@ -129,6 +134,20 @@ const ne = () => lineas().filter(Boolean);
 const trad = () => { const t = rd(TKEY, {})[V.id] || {}; return { lineas: t.lineas || [], notas: t.notas || [], fuente: t.fuente || "" }; };
 function guardarTrad(arr, fuente, notas) { const t = rd(TKEY, {}); t[V.id] = { lineas: arr, notas: notas || [], fuente }; wr(TKEY, t); }
 
+// ---- Variante del español: afecta al texto que se le pide a Claude y a la voz que lee la traducción ----
+const VARS = {
+  neutro: ["español neutro de Latinoamérica", ["es-US", "es-MX"]],
+  mexico: ["México", ["es-MX", "es-US"]],
+  colombia: ["Colombia", ["es-CO", "es-US", "es-MX"]],
+  argentina: ["Argentina (rioplatense)", ["es-AR", "es-US"]],
+  chile: ["Chile", ["es-CL", "es-US"]],
+  espana: ["España", ["es-ES"]]
+};
+let variante = "neutro";
+try { const v = localStorage.getItem("videoscurso.variante"); if (v && VARS[v]) variante = v; } catch {}
+$("variante").value = variante;
+$("variante").onchange = () => { variante = $("variante").value; try { localStorage.setItem("videoscurso.variante", variante); } catch {} };
+
 // ---- Glosario de contracciones, slang y modismos frecuentes en canciones (notas propias, no son parte de la letra) ----
 const GLOSARIO = [
   [/\bgonna\b/i, "gonna = going to (voy a)"], [/\bwanna\b/i, "wanna = want to (quiero)"], [/\bgotta\b/i, "gotta = got to / have to (tengo que)"],
@@ -158,14 +177,14 @@ let hablando = null, corrida = 0;
 function voz(lang) {
   try {
     const vs = speechSynthesis.getVoices();
-    for (const o of (lang === "es" ? ["es-US", "es-MX", "es-ES"] : ["en-US"])) { const v = vs.find(x => x.lang.replace("_", "-") === o); if (v) return v; }
+    for (const o of (lang === "es" ? [...VARS[variante][1], "es-US", "es-MX", "es-ES"] : ["en-US"])) { const v = vs.find(x => x.lang.replace("_", "-") === o); if (v) return v; }
   } catch {}
   return null;
 }
 function decir(txt, lang, rate) {
   return new Promise(ok => {
     try {
-      const u = new SpeechSynthesisUtterance(txt); u.lang = lang === "es" ? "es-US" : "en-US"; u.rate = rate;
+      const u = new SpeechSynthesisUtterance(txt); u.lang = lang === "es" ? VARS[variante][1][0] : "en-US"; u.rate = rate;
       const v = voz(lang); if (v) { u.voice = v; u.lang = v.lang; }
       u.onend = u.onerror = ok; speechSynthesis.speak(u);
     } catch { ok(); }
@@ -292,7 +311,7 @@ $("copiar").onclick = async () => {
   const L = ne();
   const txt = `Traduce al español, frase por frase, esta letra de canción en inglés. La traducción debe ser NATURAL: tal como la entendería un hablante nativo de Estados Unidos que la escucha, es decir, el sentido real de cada frase y no una traducción palabra por palabra. Reglas:
 - Devuélveme SOLO las traducciones, una por línea, numeradas igual que el original (1., 2., 3., …), exactamente ${L.length} líneas, sin texto extra antes ni después.
-- Escribe el español como se diría de forma natural (en español neutro de Latinoamérica).
+- Escribe en español NATIVO, como lo diría un hablante de ${VARS[variante][0]} en una conversación o en una canción en español: con las expresiones, el orden de palabras y los modismos propios del español, sin calcos ni estructuras traducidas del inglés (no debe sonar a traducción). Si una expresión inglesa tiene un equivalente natural en español, úsalo aunque no coincida palabra por palabra.
 - Si la frase tiene un modismo, slang, doble sentido o una referencia cultural, traduce su significado real y añade al final de la línea " || " seguido de una nota muy breve que explique lo que un estadounidense entiende (por ejemplo: "3. Estoy loco por ti || 'fall for' = enamorarse de alguien"). Si no hay nada especial, no pongas nota.
 - No repitas el texto en inglés.
 
@@ -305,7 +324,7 @@ ${L.map((s, i) => `${i + 1}. ${s}`).join("\n")}`;
 $("copiar2").onclick = async () => {
   const txt = `Actúa como un profesor de inglés estadounidense y traductor profesional. Para esta canción, en vez de traducir verso por verso, explícame en español:
 1) De qué trata la canción y qué siente quien canta.
-2) El significado natural de cada estrofa, con las palabras que usaría un hablante nativo de EE. UU. y cómo se diría en español natural.
+2) El significado natural de cada estrofa, con las palabras que usaría un hablante nativo de EE. UU. y cómo lo diría un hablante nativo de ${VARS[variante][0]} (español nativo, sin calcos del inglés).
 3) Los modismos, slang, contracciones y dobles sentidos, con lo que un estadounidense entiende al oírlos.
 4) Cinco frases útiles de la canción para aprender, con su uso en una conversación real.
 
