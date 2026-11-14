@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Traducción de la canción</title>
+<style>
+  :root {
+    --bg:#fff8f0; --card:#ffffff; --fg:#2b2140; --mut:#7a6f8c; --bd:#eadfd2;
+    --p1:#ff6b6b; --p2:#ffa94d; --p3:#845ef7; --hov:#f6efff; --sh:0 6px 20px rgba(80,40,120,.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#17121f; --card:#221b30; --fg:#f4eefc; --mut:#a99cc0; --bd:#352b49; --hov:#2d2342; --sh:0 6px 20px rgba(0,0,0,.4); }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 "Segoe UI",system-ui,sans-serif; }
+  .wrap { max-width:900px; margin:0 auto; padding:0 16px 40px; }
+  header.hero { padding:24px 16px 40px; color:#fff; background:linear-gradient(135deg,var(--p3),var(--p1) 60%,var(--p2)); border-radius:0 0 32px 32px; text-align:center; }
+  .hero h1 { margin:8px 0 4px; font-size:clamp(1.4rem,4.5vw,2.1rem); }
+  .hero p { margin:0; opacity:.92; }
+  .nav { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .back { color:#fff; text-decoration:none; background:rgba(255,255,255,.2); padding:6px 14px; border-radius:999px; font-size:.9rem; }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:20px; padding:18px; box-shadow:var(--sh); margin-top:18px; }
+  .card h2 { margin:0 0 10px; font-size:1.1rem; }
+  .mut { color:var(--mut); font-size:.9rem; }
+  iframe { width:100%; aspect-ratio:16/9; border:0; border-radius:14px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+  button.go, a.go { border:0; background:linear-gradient(135deg,var(--p3),var(--p1)); color:#fff; padding:10px 18px; border-radius:999px; cursor:pointer; font-size:.95rem; text-decoration:none; }
+  button.go.sec, a.go.sec { background:var(--card); color:var(--fg); border:1px solid var(--bd); }
+  button.sm { padding:4px 10px; font-size:.8rem; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  textarea { width:100%; min-height:130px; margin-top:8px; padding:10px; border:1px solid var(--bd); border-radius:12px; background:var(--bg); color:var(--fg); font:inherit; }
+  .par { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:10px 4px; }
+  .par + .par { border-top:1px solid var(--bd); }
+  .par .en { font-weight:600; }
+  .par .es { color:var(--mut); }
+  .par .es.vacio { font-style:italic; opacity:.7; }
+  .esp { height:14px; }
+  .cab { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:0 4px 6px; font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); }
+  @media (max-width:640px) { .par, .cab { grid-template-columns:1fr; gap:2px; } .cab span:last-child { display:none; } }
+  .barra { height:8px; border-radius:99px; background:var(--hov); overflow:hidden; margin-top:10px; }
+  .barra i { display:block; height:100%; width:0; background:linear-gradient(90deg,var(--p3),var(--p1)); }
+  .vacio { text-align:center; padding:40px 8px; }
+  a:focus-visible, button:focus-visible { outline:3px solid var(--p3); outline-offset:2px; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="nav"><a class="back" href="./">← Dashboard</a><a class="back" href="tutor.html">🇺🇸 Profesor</a></div>
+  <h1>🌐 Traducción de la canción</h1>
+  <p id="sub">Entiende la letra frase por frase.</p>
+</header>
+
+<main class="wrap">
+  <div class="card vacio" id="sinvideo" hidden>
+    <div style="font-size:2.4rem">🎶</div>
+    <p>Primero escoge una canción en el dashboard.</p>
+    <a class="go" href="./">Ir al dashboard</a>
+  </div>
+
+  <div id="todo" hidden>
+    <section class="card">
+      <iframe id="yt" allowfullscreen title="Video de la canción"></iframe>
+    </section>
+
+    <section class="card" id="sinletra" hidden>
+      <h2>Falta la letra</h2>
+      <p class="mut" style="margin:0">No encontré la letra de esta canción. Pégala aquí (en inglés, una frase por línea):</p>
+      <textarea id="letraIn" placeholder="Pega la letra en inglés…" aria-label="Letra en inglés"></textarea>
+      <div class="row"><button class="go" id="guardaLetra">Guardar letra</button></div>
+    </section>
+
+    <section class="card" id="panel" hidden>
+      <h2>Traducir</h2>
+      <p class="mut" style="margin:0">Elige cómo traducir. La traducción de Claude suele ser mucho mejor porque entiende modismos y el sentido de la canción.</p>
+      <div class="row">
+        <button class="go" id="auto">⚡ Traducir automáticamente</button>
+        <button class="go sec" id="copiar">📋 Copiar para traducir con Claude</button>
+        <a class="go sec" href="https://claude.ai/new" target="_blank" rel="noopener">Abrir claude.ai</a>
+      </div>
+      <div class="barra" id="barra" hidden><i id="prog"></i></div>
+      <p class="mut" id="msg" aria-live="polite" style="margin:8px 0 0"></p>
+      <details style="margin-top:10px">
+        <summary class="mut" style="cursor:pointer">Pegar aquí la traducción de Claude</summary>
+        <textarea id="pega" placeholder="Pega aquí la respuesta de Claude (líneas numeradas 1., 2., 3.…)" aria-label="Traducción de Claude"></textarea>
+        <div class="row"><button class="go" id="guardaTrad">Guardar traducción</button></div>
+      </details>
+    </section>
+
+    <section class="card" id="letraCard" hidden>
+      <h2 id="titulo">Letra y traducción</h2>
+      <div class="cab"><span>English</span><span>Español</span></div>
+      <div id="pares"></div>
+      <p class="mut" id="fuente" style="margin:12px 0 0"></p>
+    </section>
+  </div>
+</main>
+
+<script>
+const KEY = "videoscurso.activo", LKEY = "videoscurso.letras", TKEY = "videoscurso.trad";
+const $ = id => document.getElementById(id);
+const rd = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const dec = s => { const t = document.createElement("textarea"); t.innerHTML = s; return t.value; };
+
+const V = rd(KEY, null);
+const letraDe = () => (rd(LKEY, {})[V.id] || "");
+// Líneas limpias; los saltos de estrofa se conservan como separadores.
+function lineas() {
+  const out = [];
+  letraDe().replace(/\r/g, "").split("\n").forEach(s => { s = s.trim(); if (s || (out.length && out[out.length - 1] !== "")) out.push(s); });
+  while (out.length && out[out.length - 1] === "") out.pop();
+  return out;
+}
+const ne = () => lineas().filter(Boolean);
+const trad = () => (rd(TKEY, {})[V.id] || { lineas: [], fuente: "" });
+function guardarTrad(arr, fuente) { const t = rd(TKEY, {}); t[V.id] = { lineas: arr, fuente }; wr(TKEY, t); }
+
+// ---- Escuchar una frase (un clic reproduce, otro detiene) ----
+let hablando = null;
+function parar() { try { speechSynthesis.cancel(); } catch {} if (hablando) hablando.textContent = "🔊"; hablando = null; }
+function leer(txt, btn) {
+  if (hablando === btn) { parar(); return; }
+  parar();
+  try {
+    const u = new SpeechSynthesisUtterance(txt); u.lang = "en-US"; u.rate = 0.9;
+    u.onend = u.onerror = () => { if (hablando === btn) parar(); };
+    hablando = btn; btn.textContent = "⏹"; speechSynthesis.speak(u);
+  } catch {}
+}
+
+function pintar() {
+  const L = lineas(), t = trad().lineas;
+  $("sinletra").hidden = L.length > 0; $("panel").hidden = L.length === 0; $("letraCard").hidden = L.length === 0;
+  if (!L.length) return;
+  const cont = $("pares"); cont.innerHTML = "";
+  let k = 0, hechas = 0;
+  L.forEach(s => {
+    if (!s) { const d = document.createElement("div"); d.className = "esp"; cont.append(d); return; }
+    const tr = t[k++] || ""; if (tr) hechas++;
+    const d = document.createElement("div"); d.className = "par";
+    const en = document.createElement("div"); en.className = "en";
+    const b = document.createElement("button"); b.className = "go sec sm"; b.textContent = "🔊"; b.title = "Escuchar esta frase"; b.setAttribute("aria-label", "Escuchar: " + s); b.onclick = () => leer(s, b);
+    en.append(b, " ", s);
+    const es = document.createElement("div"); es.className = "es" + (tr ? "" : " vacio"); es.textContent = tr || "(sin traducir)";
+    d.append(en, es); cont.append(d);
+  });
+  const f = trad().fuente;
+  $("fuente").textContent = hechas ? `Traducción ${f === "claude" ? "hecha con Claude" : "automática (puede tener errores)"} · ${hechas} de ${ne().length} frases.` : "Aún no hay traducción. Usa uno de los botones de arriba.";
+}
+
+// ---- Traducción automática (MyMemory, gratuita y con límite diario) ----
+$("auto").onclick = async () => {
+  const L = ne(), out = trad().lineas.slice(); let i = 0, fallo = "", listas = 0;
+  $("auto").disabled = true; $("barra").hidden = false; $("prog").style.width = "0"; $("msg").textContent = "Traduciendo…";
+  const worker = async () => {
+    while (i < L.length && !fallo) {
+      const k = i++;
+      try {
+        const r = await fetch("https://api.mymemory.translated.net/get?langpair=en|es&q=" + encodeURIComponent(L[k]));
+        const d = await r.json(), t = d.responseData && d.responseData.translatedText;
+        if (Number(d.responseStatus) !== 200 || !t || /MYMEMORY WARNING/i.test(t)) { fallo = "Se alcanzó el límite diario del traductor gratuito. Inténtalo mañana o usa la opción de Claude."; return; }
+        out[k] = dec(t); listas++; $("prog").style.width = Math.round(100 * listas / L.length) + "%";
+      } catch { fallo = "No pude conectar con el traductor. Revisa tu internet."; return; }
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  if (listas) { guardarTrad(out, "auto"); pintar(); }
+  $("msg").textContent = fallo ? fallo + (listas ? ` (se tradujeron ${listas} frases)` : "") : "Listo. Revisa las frases: la traducción automática puede equivocarse con modismos.";
+  $("auto").disabled = false;
+};
+
+// ---- Traducción con Claude (claude.ai): copiar y pegar ----
+$("copiar").onclick = async () => {
+  const L = ne();
+  const txt = `Traduce al español, frase por frase, esta letra de canción en inglés. Reglas:
+- Devuélveme SOLO las traducciones, una por línea, numeradas igual que el original (1., 2., 3., …), exactamente ${L.length} líneas, sin comentarios ni texto extra.
+- Traduce el sentido natural, no palabra por palabra; si hay un modismo o slang, usa su significado real.
+- No repitas el texto en inglés.
+
+LETRA (${L.length} líneas) de "${V.titulo}":
+${L.map((s, i) => `${i + 1}. ${s}`).join("\n")}`;
+  try { await navigator.clipboard.writeText(txt); $("msg").textContent = "✅ Copiado. Abre claude.ai, pega en un chat nuevo, copia la respuesta y pégala abajo en «Pegar aquí la traducción de Claude»."; }
+  catch { $("pega").value = txt; $("pega").closest("details").open = true; $("pega").select(); $("msg").textContent = "Copia este texto (Ctrl+C) y pégalo en claude.ai. Luego borra este cuadro y pega la respuesta de Claude."; }
+};
+$("guardaTrad").onclick = () => {
+  const n = ne().length, L = $("pega").value.replace(/\r/g, "").split("\n").map(s => s.trim()).filter(Boolean);
+  const num = L.filter(s => /^\d+[.)]\s*/.test(s)), res = new Array(n).fill("");
+  if (num.length >= n * 0.8) num.forEach(s => { const m = s.match(/^(\d+)[.)]\s*(.*)$/); const i = +m[1] - 1; if (i >= 0 && i < n) res[i] = m[2]; });
+  else L.forEach((s, i) => { if (i < n) res[i] = s.replace(/^\d+[.)]\s*/, ""); });
+  const hechas = res.filter(Boolean).length;
+  if (!hechas) { $("msg").textContent = "No encontré traducción en el texto pegado."; return; }
+  guardarTrad(res, "claude"); $("pega").value = ""; pintar();
+  $("msg").textContent = hechas === n ? "✅ Traducción guardada." : `Guardada, pero recibí ${hechas} de ${n} frases. Pídele a Claude que complete las que faltan.`;
+};
+$("guardaLetra").onclick = () => { const t = $("letraIn").value.trim(); if (!t) return; const l = rd(LKEY, {}); l[V.id] = t; wr(LKEY, l); pintar(); };
+
+if (!V) { $("sinvideo").hidden = false; }
+else {
+  $("todo").hidden = false;
+  $("yt").src = "https://www.youtube.com/embed/" + encodeURIComponent(V.id) + "?rel=0";
+  $("sub").textContent = V.titulo;
+  $("titulo").textContent = "Letra y traducción · " + V.titulo;
+  pintar();
+}
+</script>
+</body>
+</html>
