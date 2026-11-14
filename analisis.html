@@ -113,8 +113,13 @@
     <section class="card" id="chat">
       <h2>🤖 Tutor de pronunciación (IA)</h2>
       <p class="mut" style="margin:0">Conversa con un tutor de IA sobre tus errores. Recibe tu canción, tu calificación y las palabras que fallaste; no recibe tu audio.</p>
+      <div class="actions" style="justify-content:flex-start">
+        <button class="go" id="copiar">📋 Copiar resumen y hablar con Claude (claude.ai)</button>
+        <a class="go" style="background:var(--card);color:var(--fg);border:1px solid var(--bd)" href="https://claude.ai/new" target="_blank" rel="noopener">Abrir claude.ai</a>
+      </div>
+      <p class="mut" id="copiado" style="margin:6px 0 0" aria-live="polite">Funciona con tu cuenta Claude Pro: copia el resumen de tus errores, abre claude.ai y pégalo en un chat nuevo.</p>
       <div id="clave" hidden>
-        <p class="mut" style="margin:10px 0 0">Para activarlo pega tu clave de la API de Anthropic (se guarda solo en este navegador). Cada mensaje se cobra a tu cuenta de Anthropic.</p>
+        <p class="mut" style="margin:10px 0 0">Opcional, para chatear aquí mismo: pega una clave de la API de Anthropic (se crea en console.anthropic.com; es una cuenta distinta de Claude Pro y se cobra por uso). Se guarda solo en este navegador.</p>
         <div class="keyrow"><input id="keyin" type="password" placeholder="Clave de la API de Anthropic" autocomplete="off" aria-label="Clave de la API de Anthropic"><button class="go" id="savekey">Guardar</button></div>
       </div>
       <div id="chatbox" hidden>
@@ -368,6 +373,14 @@ async function enviar(texto) {
 $("savekey").onclick = () => { const k = $("keyin").value.trim(); if (!k) return; try { localStorage.setItem(AKEY, k); } catch {} $("keyin").value = ""; vistaClave(); };
 $("quitar").onclick = () => { try { localStorage.removeItem(AKEY); } catch {} vistaClave(); };
 $("nuevo").onclick = () => { charla = []; wr(CKEY(), []); pintarChat(); };
+$("copiar").onclick = async () => {
+  const txt = contexto() + "\n\nQuiero trabajar estas palabras contigo. Empieza explicándome mis errores y propón el primer ejercicio.";
+  try { await navigator.clipboard.writeText(txt); $("copiado").textContent = "✅ Copiado. Abre claude.ai, crea un chat nuevo y pega (Ctrl+V)."; }
+  catch {
+    const ta = document.createElement("textarea"); ta.value = txt; ta.style.cssText = "width:100%;height:140px;margin-top:8px"; $("copiado").after(ta); ta.select();
+    $("copiado").textContent = "Selecciona y copia este texto (Ctrl+C), luego pégalo en un chat de claude.ai:";
+  }
+};
 $("send").onclick = () => enviar($("chatin").value);
 $("chatin").addEventListener("keydown", e => { if (e.key === "Enter") enviar($("chatin").value); });
 $("modelo").onchange = () => { try { localStorage.setItem(MKEY, $("modelo").value); } catch {} };
