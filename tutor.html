@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profesor de inglés</title>
+<style>
+  :root {
+    --bg:#fff8f0; --card:#ffffff; --fg:#2b2140; --mut:#7a6f8c; --bd:#eadfd2;
+    --p1:#ff6b6b; --p2:#ffa94d; --p3:#845ef7; --hov:#f6efff; --sh:0 6px 20px rgba(80,40,120,.10);
+    --ok:#2f9e44; --bad:#e03131; --badbg:#ffe3e3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#17121f; --card:#221b30; --fg:#f4eefc; --mut:#a99cc0; --bd:#352b49; --hov:#2d2342; --sh:0 6px 20px rgba(0,0,0,.4); --ok:#69db7c; --bad:#ff8787; --badbg:#4a2230; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 "Segoe UI",system-ui,sans-serif; }
+  .wrap { max-width:900px; margin:0 auto; padding:0 16px 40px; }
+  header.hero { padding:24px 16px 40px; color:#fff; background:linear-gradient(135deg,var(--p3),var(--p1) 60%,var(--p2)); border-radius:0 0 32px 32px; text-align:center; }
+  .hero h1 { margin:8px 0 4px; font-size:clamp(1.4rem,4.5vw,2.1rem); }
+  .hero p { margin:0; opacity:.92; }
+  .nav { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .back { color:#fff; text-decoration:none; background:rgba(255,255,255,.2); padding:6px 14px; border-radius:999px; font-size:.9rem; }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:20px; padding:18px; box-shadow:var(--sh); margin-top:18px; }
+  .card h2 { margin:0 0 10px; font-size:1.1rem; }
+  .mut { color:var(--mut); font-size:.9rem; }
+  .top { display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  .score { font-size:2.6rem; font-weight:700; line-height:1; }
+  .chip { border:1px solid var(--bd); background:var(--card); color:var(--fg); padding:6px 14px; border-radius:999px; cursor:pointer; font-size:.92rem; }
+  .chip:hover { background:var(--hov); }
+  .words, .quick { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
+  .log { display:flex; flex-direction:column; gap:10px; min-height:200px; max-height:480px; overflow-y:auto; padding:4px 2px; margin:10px 0; }
+  .msg { max-width:88%; padding:10px 14px; border-radius:16px; overflow-wrap:anywhere; }
+  .msg.user { align-self:flex-end; background:linear-gradient(135deg,var(--p3),var(--p1)); color:#fff; border-bottom-right-radius:4px; }
+  .msg.ai { align-self:flex-start; background:var(--hov); border-bottom-left-radius:4px; }
+  .msg.err { align-self:center; background:var(--badbg); color:var(--bad); font-size:.9rem; }
+  .msg button { display:block; margin-top:8px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px; }
+  .row input[type=text], .row input[type=password], .row select { flex:1; min-width:0; padding:10px 14px; border:1px solid var(--bd); border-radius:999px; background:var(--bg); color:var(--fg); font:inherit; }
+  button.go, a.go { border:0; background:linear-gradient(135deg,var(--p3),var(--p1)); color:#fff; padding:10px 18px; border-radius:999px; cursor:pointer; font-size:.95rem; text-decoration:none; }
+  button.go.sec, a.go.sec { background:var(--card); color:var(--fg); border:1px solid var(--bd); }
+  button.sm { padding:5px 12px; font-size:.82rem; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  textarea { width:100%; height:140px; margin-top:8px; padding:10px; border:1px solid var(--bd); border-radius:12px; background:var(--bg); color:var(--fg); font:inherit; }
+  a:focus-visible, button:focus-visible, input:focus-visible { outline:3px solid var(--p3); outline-offset:2px; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="nav"><a class="back" href="./">← Dashboard</a><a class="back" id="aAn" href="analisis.html">← Mi análisis</a></div>
+  <h1>🇺🇸 Tu profesor de inglés</h1>
+  <p>Conversa con Claude para corregir tu pronunciación, como en una clase con un profesor de Estados Unidos.</p>
+</header>
+
+<main class="wrap">
+  <section class="card" id="resumen" hidden>
+    <div class="top">
+      <div class="score" id="score"></div>
+      <div><b id="cancion"></b><br><span class="mut" id="fch"></span></div>
+    </div>
+    <p class="mut" style="margin:10px 0 0">Palabras que tu profesor va a trabajar contigo (toca una para preguntar por ella):</p>
+    <div class="words" id="palabras"></div>
+  </section>
+
+  <section class="card">
+    <h2>💬 Clase de conversación</h2>
+
+    <div id="clave" hidden>
+      <p style="margin:0 0 6px"><b>Para conversar aquí necesitas una clave de la API de Anthropic.</b></p>
+      <p class="mut" style="margin:0">Se crea en console.anthropic.com y se paga por uso con saldo prepagado (es distinta de Claude Pro). Con el modelo Haiku cada mensaje cuesta una fracción de centavo. La clave se guarda solo en este navegador.</p>
+      <div class="row"><input id="keyin" type="password" placeholder="Clave de la API de Anthropic" autocomplete="off" aria-label="Clave de la API de Anthropic"><button class="go" id="savekey">Guardar</button></div>
+      <p class="mut" style="margin:14px 0 0"><b>¿Solo tienes Claude Pro?</b> Copia la clase y pégala en un chat de claude.ai:</p>
+      <div class="row"><button class="go sec" id="copiar">📋 Copiar clase para claude.ai</button><a class="go sec" href="https://claude.ai/new" target="_blank" rel="noopener">Abrir claude.ai</a></div>
+      <p class="mut" id="copiado" aria-live="polite" style="margin:6px 0 0"></p>
+    </div>
+
+    <div id="chatbox" hidden>
+      <div class="quick" id="quick"></div>
+      <div class="log" id="log" aria-live="polite"></div>
+      <div class="row">
+        <input id="chatin" type="text" placeholder="Escribe en inglés o español… / Type here…" aria-label="Mensaje para el profesor">
+        <button class="go sec" id="mic" title="Habla en inglés y se envía solo">🎤 Hablar</button>
+        <button class="go" id="send">Enviar</button>
+      </div>
+      <div class="row">
+        <label class="mut"><input type="checkbox" id="auto"> Leer respuestas en voz alta</label>
+        <button class="go sec sm" id="paraVoz">⏹ Parar voz</button>
+        <select id="modelo" aria-label="Modelo" style="max-width:260px"><option value="claude-opus-5-5">Claude Opus 5.5 (más capaz)</option><option value="claude-haiku-5-5">Claude Haiku 5.5 (más barato y rápido)</option></select>
+        <button class="go sec sm" id="nuevo">Nueva clase</button>
+        <button class="go sec sm" id="quitar">Quitar clave</button>
+      </div>
+      <p class="mut" style="margin:8px 0 0">El profesor recibe tu canción, tu calificación, las palabras que fallaste y lo que escribas o digas aquí. No recibe tu audio de canto. La voz que lee las respuestas es en inglés de EE. UU.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+const SKEY = "videoscurso.sesiones", PKEY = "videoscurso.practica", AKEY = "videoscurso.anthropickey", MKEY = "videoscurso.modelo";
+const $ = id => document.getElementById(id);
+const rd = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const fecha = iso => new Date(iso).toLocaleString("es", { dateStyle: "short", timeStyle: "short" });
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const getAK = () => { try { return localStorage.getItem(AKEY) || ""; } catch { return ""; } };
+
+const params = new URLSearchParams(location.search);
+const todas = rd(SKEY, []);
+const S = todas.find(x => String(x.id) === params.get("id")) || todas[todas.length - 1] || null;
+const palabras = S ? (S.malas || []).filter(m => m.w.length >= 3).slice(0, 14) : [];
+const ultimo = w => { const h = rd(PKEY, {})[w] || []; return h.length ? h[h.length - 1].pct : null; };
+const CKEY = "videoscurso.chat2." + (S ? S.id : "general");
+let charla = rd(CKEY, []), ocupado = false;
+if (S) $("aAn").href = "analisis.html?id=" + S.id;
+
+// ---- Instrucciones del profesor ----
+function contexto() {
+  const datos = S ? `
+LEARNER DATA (estimated by the browser's speech recognition while the learner sang a karaoke song; not an official assessment):
+- Song: ${S.titulo}
+- Estimated pronunciation score: ${S.score}%
+- Lyric words the recognizer did not understand: ${(S.malas || []).slice(0, 15).map(m => `${m.w} (x${m.n})`).join(", ") || "none recorded"}
+- Unclear phrases: ${(S.frases || []).join(" | ") || "none"}
+- Word practice (last %): ${palabras.map(m => `${m.w}: ${ultimo(m.w) === null ? "not practiced" : ultimo(m.w) + "%"}`).join("; ") || "none"}`
+  : "\nLEARNER DATA: no singing attempt recorded yet. Start by getting to know the learner and their level.";
+  return `You are a friendly, patient American English teacher (General American accent) running a one-on-one pronunciation and conversation class with a native Spanish speaker who learns English by singing karaoke.
+
+How to teach:
+- Speak mostly in simple English matched to the learner's level (assume A2-B1 until they show otherwise). Use short sentences. Add a brief Spanish gloss in parentheses only when a word or idea is likely to be unclear. If the learner writes in Spanish, answer in simple English plus a short Spanish explanation.
+- Keep each reply under about 120 words, then end with ONE small task or question, so the learner keeps talking. Never give a long lecture.
+- Work through the learner's problem words one at a time. For each: say how it sounds in General American English, approximate it with Spanish letters (say it is approximate), name the typical mistake Spanish speakers make, give one short trick, then ask the learner to say it aloud and tell you the % shown in "Practica cada palabra" on the analysis page, or to use the microphone button here.
+- Also gently correct the learner's own English: show the corrected sentence, then explain in one line.
+- Use American features when relevant: flap T (water, better), the American R, TH sounds, final consonants (-ed, -s, -t, -d), vowel pairs like ship/sheep, linking and reductions in songs (gonna, wanna).
+- Celebrate real progress with specifics. Be honest: the scores are estimates and may be affected by noise or fast singing.
+- Use only the data below about the learner's performance. Do not invent scores. Do not ask for personal data.
+${datos}`;
+}
+
+// ---- Resumen ----
+if (S) {
+  $("resumen").hidden = false;
+  $("score").textContent = S.score + "%"; $("cancion").textContent = S.titulo; $("fch").textContent = fecha(S.fecha);
+  palabras.forEach(m => { const b = document.createElement("button"); b.className = "chip"; b.textContent = m.w + (ultimo(m.w) === null ? "" : " · " + ultimo(m.w) + "%"); b.onclick = () => enviar(`Let's work on the word "${m.w}". How do I say it?`); $("palabras").append(b); });
+  if (!palabras.length) $("palabras").innerHTML = `<span class="mut">No hay palabras fallidas. ¡Puedes conversar sobre la canción!</span>`;
+}
+
+// ---- Voz: leer respuestas y dictar ----
+let hablandoBtn = null;
+function pararVoz() { try { speechSynthesis.cancel(); } catch {} hablandoBtn = null; document.querySelectorAll("[data-say]").forEach(b => { b.textContent = "🔊 Escuchar"; }); }
+function leer(texto, btn) {
+  if (btn && hablandoBtn === btn) { pararVoz(); return; }
+  pararVoz();
+  try {
+    const u = new SpeechSynthesisUtterance(texto.replace(/[*_#`]/g, ""));
+    u.lang = "en-US"; u.rate = 0.95;
+    const v = speechSynthesis.getVoices().find(x => /^en-US/i.test(x.lang)); if (v) u.voice = v;
+    u.onend = u.onerror = () => { if (hablandoBtn === btn) pararVoz(); };
+    hablandoBtn = btn; if (btn) btn.textContent = "⏹ Detener";
+    speechSynthesis.speak(u);
+  } catch {}
+}
+$("paraVoz").onclick = pararVoz;
+
+let srr = null;
+$("mic").onclick = () => {
+  if (srr) { srr.stop(); return; }
+  if (!SR) { pintarChat("Tu navegador no permite reconocimiento de voz. Usa Chrome o Edge en computadora."); return; }
+  pararVoz();
+  srr = new SR(); srr.lang = "en-US"; srr.interimResults = true; srr.continuous = false;
+  $("mic").textContent = "⏹ Detener";
+  srr.onresult = e => { let t = ""; for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; $("chatin").value = t; };
+  srr.onerror = e => { if (e.error === "not-allowed") pintarChat("Necesito permiso para usar el micrófono."); };
+  srr.onend = () => { srr = null; $("mic").textContent = "🎤 Hablar"; const t = $("chatin").value.trim(); if (t) enviar(t); };
+  try { srr.start(); } catch { srr = null; $("mic").textContent = "🎤 Hablar"; }
+};
+
+// ---- Chat con Claude ----
+const fmt = t => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
+function pintarChat(err) {
+  const l = $("log");
+  l.innerHTML = charla.length ? "" : `<div class="msg ai">Hi! I'm your English teacher. Ready for class? Pick an option above or type "hello". (¡Hola! Soy tu profesor. Elige una opción o escribe "hello".)</div>`;
+  charla.forEach(m => {
+    const d = document.createElement("div"); d.className = "msg " + (m.role === "user" ? "user" : "ai"); d.innerHTML = fmt(m.content);
+    if (m.role !== "user") { const b = document.createElement("button"); b.className = "go sec sm"; b.dataset.say = "1"; b.textContent = "🔊 Escuchar"; b.onclick = () => leer(m.content, b); d.append(b); }
+    l.append(d);
+  });
+  if (ocupado) { const d = document.createElement("div"); d.className = "msg ai"; d.textContent = "…"; l.append(d); }
+  if (err) { const d = document.createElement("div"); d.className = "msg err"; d.textContent = err; l.append(d); }
+  l.scrollTop = l.scrollHeight;
+  $("send").disabled = ocupado; $("chatin").disabled = ocupado;
+}
+function vista() { const k = !!getAK(); $("clave").hidden = k; $("chatbox").hidden = !k; if (k) pintarChat(); }
+
+async function enviar(texto) {
+  texto = (texto || "").trim(); if (!texto || ocupado) return;
+  if (!getAK()) { vista(); return; }
+  pararVoz();
+  charla.push({ role: "user", content: texto }); $("chatin").value = ""; ocupado = true; pintarChat();
+  let err = "";
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": getAK(), "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      body: JSON.stringify({ model: $("modelo").value, max_tokens: 1200, system: contexto(), output_config: { effort: "low" }, messages: charla.slice(-24) })
+    });
+    const d = await r.json();
+    if (!r.ok) throw d;
+    if (d.stop_reason === "refusal") throw { error: { message: "No pude responder a eso. Prueba con otra pregunta." } };
+    const t = (d.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
+    if (!t) throw { error: { message: "Respuesta vacía. Inténtalo de nuevo." } };
+    charla.push({ role: "assistant", content: t }); wr(CKEY, charla.slice(-40));
+    ocupado = false; pintarChat();
+    if ($("auto").checked) { const b = $("log").querySelector(".msg.ai:last-of-type [data-say]"); leer(t, b); }
+    return;
+  } catch (e) {
+    charla.pop(); $("chatin").value = texto;
+    const tipo = e && e.error && e.error.type;
+    if (tipo === "authentication_error") { try { localStorage.removeItem(AKEY); } catch {} ocupado = false; vista(); return; }
+    err = tipo === "rate_limit_error" ? "Demasiadas solicitudes. Espera un momento."
+      : tipo === "invalid_request_error" && /credit/i.test(e.error.message || "") ? "Tu cuenta de la API no tiene saldo. Agrega crédito en console.anthropic.com."
+      : (e && e.error && e.error.message) || "No pude conectar con el profesor. Revisa tu internet.";
+  }
+  ocupado = false; pintarChat(err);
+}
+
+// ---- Controles ----
+$("savekey").onclick = () => { const k = $("keyin").value.trim(); if (!k) return; try { localStorage.setItem(AKEY, k); } catch {} $("keyin").value = ""; vista(); iniciarW(); };
+$("quitar").onclick = () => { try { localStorage.removeItem(AKEY); } catch {} pararVoz(); vista(); };
+$("nuevo").onclick = () => { charla = []; wr(CKEY, []); pararVoz(); pintarChat(); };
+$("send").onclick = () => enviar($("chatin").value);
+$("chatin").addEventListener("keydown", e => { if (e.key === "Enter") enviar($("chatin").value); });
+$("modelo").onchange = () => { try { localStorage.setItem(MKEY, $("modelo").value); } catch {} };
+try { const m = localStorage.getItem(MKEY); if (m) $("modelo").value = m; } catch {}
+$("copiar").onclick = async () => {
+  const txt = contexto() + "\n\nStart the class now: greet me and begin with my first problem word.";
+  try { await navigator.clipboard.writeText(txt); $("copiado").textContent = "✅ Copiado. Abre claude.ai, crea un chat nuevo y pega (Ctrl+V)."; }
+  catch { const ta = document.createElement("textarea"); ta.value = txt; $("copiado").after(ta); ta.select(); $("copiado").textContent = "Copia este texto (Ctrl+C) y pégalo en un chat de claude.ai:"; }
+};
+const rapidas = ["Start the class", "Explícame mis errores en español", "Let's have a short conversation", "Corrige mi inglés: I am singing a song"];
+rapidas.forEach(t => { const b = document.createElement("button"); b.className = "chip"; b.textContent = t; b.onclick = () => enviar(t); $("quick").append(b); });
+function iniciarW() { const w = params.get("w"); if (w && getAK() && !charla.length) enviar(`Let's work on the word "${w}". How do I say it?`); }
+vista(); iniciarW();
+</script>
+</body>
+</html>

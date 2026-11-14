@@ -111,25 +111,9 @@
     </section>
 
     <section class="card" id="chat">
-      <h2>🤖 Tutor de pronunciación (IA)</h2>
-      <p class="mut" style="margin:0">Conversa con un tutor de IA sobre tus errores. Recibe tu canción, tu calificación y las palabras que fallaste; no recibe tu audio.</p>
-      <div class="actions" style="justify-content:flex-start">
-        <button class="go" id="copiar">📋 Copiar resumen y hablar con Claude (claude.ai)</button>
-        <a class="go" style="background:var(--card);color:var(--fg);border:1px solid var(--bd)" href="https://claude.ai/new" target="_blank" rel="noopener">Abrir claude.ai</a>
-      </div>
-      <p class="mut" id="copiado" style="margin:6px 0 0" aria-live="polite">Funciona con tu cuenta Claude Pro: copia el resumen de tus errores, abre claude.ai y pégalo en un chat nuevo.</p>
-      <div id="clave" hidden>
-        <p class="mut" style="margin:10px 0 0">Opcional, para chatear aquí mismo: pega una clave de la API de Anthropic (se crea en console.anthropic.com; es una cuenta distinta de Claude Pro y se cobra por uso). Se guarda solo en este navegador.</p>
-        <div class="keyrow"><input id="keyin" type="password" placeholder="Clave de la API de Anthropic" autocomplete="off" aria-label="Clave de la API de Anthropic"><button class="go" id="savekey">Guardar</button></div>
-      </div>
-      <div id="chatbox" hidden>
-        <div class="quick" id="quick"></div>
-        <div class="log" id="log" aria-live="polite"></div>
-        <div class="chatrow"><input id="chatin" placeholder="Escribe tu pregunta…" aria-label="Mensaje para el tutor"><button class="go" id="send">Enviar</button></div>
-        <div class="keyrow" style="align-items:center"><label class="mut" for="modelo">Modelo</label>
-          <select id="modelo"><option value="claude-opus-5-5">Claude Opus 5.5 (más capaz)</option><option value="claude-haiku-5-5">Claude Haiku 5.5 (más barato y rápido)</option></select>
-          <button class="go sec" id="nuevo">Nueva conversación</button><button class="go sec" id="quitar">Quitar clave</button></div>
-      </div>
+      <h2>🇺🇸 Habla con tu profesor de inglés</h2>
+      <p class="mut" style="margin:0 0 10px">Conversa con Claude, que actúa como profesor de Estados Unidos, sobre tus errores y las palabras difíciles.</p>
+      <a class="go" id="aTutor" href="tutor.html">💬 Ir a la clase con Claude →</a>
     </section>
 
     <section class="card">
@@ -231,10 +215,19 @@ function abrir(w) {
       <button class="go sec" id="tutor">💬 Preguntar al tutor</button>
     </div>
     <div id="pres" style="margin-top:12px" aria-live="polite"></div></div>`;
-  const decir = rate => { try { const u = new SpeechSynthesisUtterance(w); u.lang = "en-US"; u.rate = rate; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch {} };
-  $("oir").onclick = () => decir(0.9); $("oirl").onclick = () => decir(0.5);
+  // Un clic reproduce el modelo; otro clic mientras suena lo detiene.
+  const decir = (rate, btn) => {
+    try {
+      if (speechSynthesis.speaking) { speechSynthesis.cancel(); return; }
+      const u = new SpeechSynthesisUtterance(w); u.lang = "en-US"; u.rate = rate;
+      const txt = btn.textContent; btn.textContent = "⏹ Detener";
+      u.onend = u.onerror = () => { btn.textContent = txt; };
+      speechSynthesis.speak(u);
+    } catch {}
+  };
+  $("oir").onclick = () => decir(0.9, $("oir")); $("oirl").onclick = () => decir(0.5, $("oirl"));
   $("grab").onclick = () => grabar(w);
-  $("tutor").onclick = () => { $("chat").scrollIntoView({ behavior: "smooth", block: "start" }); enviar(`¿Cómo pronuncio bien la palabra «${w}»? Dame un truco y un ejercicio corto.`); };
+  $("tutor").onclick = () => { location.href = "tutor.html?id=" + S.id + "&w=" + encodeURIComponent(w); };
 }
 
 async function grabar(w) {
@@ -281,10 +274,17 @@ function pintarHist() {
       ${s.id === S.id ? "" : `<a class="go sec" style="color:var(--fg);border:1px solid var(--bd);background:var(--card)" href="?id=${s.id}">Ver análisis</a>`}</div>`;
   }).join("");
 }
+let sonando = null; // { audio, btn }
+function pararAudio() { if (!sonando) return; sonando.audio.pause(); sonando.btn.textContent = "▶ Escuchar"; sonando = null; }
 $("hist").addEventListener("click", async e => {
   const a = e.target.closest("[data-aud]"); if (!a) return;
+  if (sonando && sonando.btn === a) { pararAudio(); return; } // segundo clic = detener
+  pararAudio();
   const b = await audioGet(a.dataset.aud); if (!b) { a.textContent = "Sin audio"; return; }
-  new Audio(URL.createObjectURL(b)).play();
+  const audio = new Audio(URL.createObjectURL(b));
+  sonando = { audio, btn: a }; a.textContent = "⏹ Detener";
+  audio.onended = () => { if (sonando && sonando.audio === audio) pararAudio(); };
+  audio.play().catch(() => pararAudio());
 });
 
 if (!S) { $("vacio").hidden = false; }
@@ -312,85 +312,7 @@ else {
   if (palabras.length) abrir(palabras[0].w);
 }
 
-// ================= Tutor con IA (Claude API, directo desde el navegador) =================
-const AKEY = "videoscurso.anthropickey", MKEY = "videoscurso.modelo";
-const getAK = () => { try { return localStorage.getItem(AKEY) || ""; } catch { return ""; } };
-const CKEY = () => "videoscurso.chat." + (S ? S.id : "");
-let charla = S ? rd(CKEY(), []) : [], ocupado = false;
-
-function contexto() {
-  const malas = (S.malas || []).slice(0, 15).map(m => `${m.w} (×${m.n})`).join(", ") || "ninguna registrada";
-  const prac = palabras.map(m => { const u = ultimo(m.w); return `${m.w}: ${u === null ? "sin practicar" : u + "%"}`; }).join("; ") || "—";
-  return `Eres un tutor amable de pronunciación en inglés para una persona hispanohablante que aprende cantando karaoke. Responde SIEMPRE en español, claro y breve (unas 150 palabras como máximo, salvo que pida más), con tono motivador. Para cada palabra difícil da: cómo suena de forma aproximada con letras del español (aclara que es aproximado), el error típico de hispanohablantes y un truco corto. Propón ejercicios cortos (pares mínimos, trabalenguas, repetir despacio) y pídele que grabe la palabra en la sección "Practica cada palabra" y te diga el porcentaje. Usa solo los datos de abajo sobre su desempeño y no inventes otros. No pidas datos personales.
-
-DATOS DEL INTENTO (estimados por el reconocedor de voz del navegador; no son una evaluación oficial):
-- Canción: ${S.titulo}
-- Calificación estimada: ${S.score}%
-- Palabras de la letra que no se entendieron: ${malas}
-- Frases poco claras: ${(S.frases || []).join(" | ") || "ninguna"}
-- Práctica por palabra (último %): ${prac}`;
-}
-
-const fmt = t => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
-function pintarChat(err) {
-  const l = $("log");
-  l.innerHTML = charla.length ? "" : `<div class="msg ai">¡Hola! Soy tu tutor de pronunciación. Pregúntame por tus errores o elige una opción de arriba. 🎤</div>`;
-  charla.forEach(m => { const d = document.createElement("div"); d.className = "msg " + (m.role === "user" ? "user" : "ai"); d.innerHTML = fmt(m.content); l.append(d); });
-  if (ocupado) { const d = document.createElement("div"); d.className = "msg ai"; d.textContent = "Escribiendo…"; l.append(d); }
-  if (err) { const d = document.createElement("div"); d.className = "msg err"; d.textContent = err; l.append(d); }
-  l.scrollTop = l.scrollHeight;
-  $("send").disabled = ocupado; $("chatin").disabled = ocupado;
-}
-function vistaClave() { const k = !!getAK(); $("clave").hidden = k; $("chatbox").hidden = !k; if (k) pintarChat(); }
-
-async function enviar(texto) {
-  texto = (texto || "").trim(); if (!texto || ocupado) return;
-  if (!getAK()) { vistaClave(); $("keyin").focus(); return; }
-  charla.push({ role: "user", content: texto }); $("chatin").value = ""; ocupado = true; pintarChat();
-  let err = "";
-  try {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-api-key": getAK(), "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify({ model: $("modelo").value, max_tokens: 1500, system: contexto(), output_config: { effort: "low" }, messages: charla.slice(-20) })
-    });
-    const d = await r.json();
-    if (!r.ok) throw d;
-    if (d.stop_reason === "refusal") throw { error: { message: "El modelo no pudo responder a eso. Reformula tu pregunta." } };
-    const t = (d.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
-    if (!t) throw { error: { message: "Respuesta vacía. Inténtalo de nuevo." } };
-    charla.push({ role: "assistant", content: t }); wr(CKEY(), charla.slice(-30));
-  } catch (e) {
-    charla.pop(); $("chatin").value = texto;
-    const tipo = e && e.error && e.error.type;
-    if (tipo === "authentication_error") { try { localStorage.removeItem(AKEY); } catch {} err = "La clave no es válida. Pégala de nuevo."; ocupado = false; vistaClave(); return; }
-    err = tipo === "rate_limit_error" ? "Demasiadas solicitudes. Espera un momento." :
-      (e && e.error && e.error.message) ? e.error.message : "No pude conectar con el tutor. Revisa tu internet.";
-  }
-  ocupado = false; pintarChat(err);
-}
-
-$("savekey").onclick = () => { const k = $("keyin").value.trim(); if (!k) return; try { localStorage.setItem(AKEY, k); } catch {} $("keyin").value = ""; vistaClave(); };
-$("quitar").onclick = () => { try { localStorage.removeItem(AKEY); } catch {} vistaClave(); };
-$("nuevo").onclick = () => { charla = []; wr(CKEY(), []); pintarChat(); };
-$("copiar").onclick = async () => {
-  const txt = contexto() + "\n\nQuiero trabajar estas palabras contigo. Empieza explicándome mis errores y propón el primer ejercicio.";
-  try { await navigator.clipboard.writeText(txt); $("copiado").textContent = "✅ Copiado. Abre claude.ai, crea un chat nuevo y pega (Ctrl+V)."; }
-  catch {
-    const ta = document.createElement("textarea"); ta.value = txt; ta.style.cssText = "width:100%;height:140px;margin-top:8px"; $("copiado").after(ta); ta.select();
-    $("copiado").textContent = "Selecciona y copia este texto (Ctrl+C), luego pégalo en un chat de claude.ai:";
-  }
-};
-$("send").onclick = () => enviar($("chatin").value);
-$("chatin").addEventListener("keydown", e => { if (e.key === "Enter") enviar($("chatin").value); });
-$("modelo").onchange = () => { try { localStorage.setItem(MKEY, $("modelo").value); } catch {} };
-try { const m = localStorage.getItem(MKEY); if (m) $("modelo").value = m; } catch {}
-if (S) {
-  const rapidas = ["Explícame mis errores", "¿Por qué fallé tantas palabras?", "Dame un ejercicio para hoy"];
-  if (palabras[0]) rapidas.splice(1, 0, `Ayúdame con «${palabras[0].w}»`);
-  rapidas.forEach(t => { const b = document.createElement("button"); b.className = "chip"; b.textContent = t; b.onclick = () => enviar(t); $("quick").append(b); });
-  vistaClave();
-}
+if (S) $("aTutor").href = "tutor.html?id=" + S.id;
 </script>
 </body>
 </html>

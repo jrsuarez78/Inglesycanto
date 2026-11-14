@@ -382,7 +382,8 @@ function mostrarResultado(s) {
   $("result").innerHTML = `<div class="res2"><div class="score" style="color:${col}">${s.score}%</div>
     <div><b>${lbl}</b><br><span class="mut">calidad de pronunciación estimada · ${fecha(s.fecha)}</span></div></div>
     <p style="margin:8px 0 0">${esc(diagnostico(s)[0])}</p>
-    <div class="actions"><a class="go" href="analisis.html?id=${s.id}" style="margin-left:0">Ver análisis completo y practicar →</a></div>`;
+    <div class="actions"><a class="go" href="analisis.html?id=${s.id}" style="margin-left:0">Ver análisis y practicar →</a>
+      <a class="go" href="tutor.html?id=${s.id}" style="margin-left:0">🇺🇸 Hablar con el profesor</a></div>`;
 }
 function mostrarResultadoViejo(s) {
   const [lbl, col] = nivel(s.score);
@@ -498,9 +499,19 @@ $("letra").addEventListener("input", () => {
   clearTimeout(window._nt); window._nt = setTimeout(() => actualizarNivel(v, $("letra").value), 500);
 });
 $("result").addEventListener("click", e => { const b = e.target.closest("[data-w]"); if (b) abrirPractica(b.dataset.w); });
+let sonando = null; // { audio, btn }
+function pararAudio() { if (!sonando) return; sonando.audio.pause(); sonando.btn.textContent = "▶ Escuchar"; sonando = null; }
 $("sesiones").addEventListener("click", async e => {
   const a = e.target.closest("[data-aud]"), ver = e.target.closest("[data-ver]");
-  if (a) { const b = await audioGet(a.dataset.aud); if (!b) { a.textContent = "Sin audio"; return; } new Audio(URL.createObjectURL(b)).play(); }
+  if (a) {
+    if (sonando && sonando.btn === a) { pararAudio(); return; } // segundo clic = detener
+    pararAudio();
+    const b = await audioGet(a.dataset.aud); if (!b) { a.textContent = "Sin audio"; return; }
+    const audio = new Audio(URL.createObjectURL(b));
+    sonando = { audio, btn: a }; a.textContent = "⏹ Detener";
+    audio.onended = () => { if (sonando && sonando.audio === audio) pararAudio(); };
+    audio.play().catch(() => pararAudio());
+  }
   if (ver) { const s = getSesiones().find(x => String(x.id) === ver.dataset.ver); if (s) location.href = "analisis.html?id=" + s.id; }
 });
 
