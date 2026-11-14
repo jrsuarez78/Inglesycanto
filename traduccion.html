@@ -36,6 +36,8 @@
   .par .es { color:var(--mut); }
   .par .es.vacio { font-style:italic; opacity:.7; }
   .esp { height:14px; }
+  .par.sonando { background:var(--hov); border-radius:12px; }
+  .nota { font-size:.82rem; margin-top:4px; color:var(--mut); }
   .cab { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:0 4px 6px; font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); }
   @media (max-width:640px) { .par, .cab { grid-template-columns:1fr; gap:2px; } .cab span:last-child { display:none; } }
   .barra { height:8px; border-radius:99px; background:var(--hov); overflow:hidden; margin-top:10px; }
@@ -72,7 +74,7 @@
 
     <section class="card" id="panel" hidden>
       <h2>Traducir</h2>
-      <p class="mut" style="margin:0">Elige cómo traducir. La traducción de Claude suele ser mucho mejor porque entiende modismos y el sentido de la canción.</p>
+      <p class="mut" style="margin:0"><b>Recomendado: Claude.</b> Entrega una traducción natural, como la entendería un estadounidense, y explica modismos y slang. La opción automática es literal y puede sonar rara.</p>
       <div class="row">
         <button class="go" id="auto">⚡ Traducir automáticamente</button>
         <button class="go sec" id="copiar">📋 Copiar para traducir con Claude</button>
@@ -89,7 +91,12 @@
 
     <section class="card" id="letraCard" hidden>
       <h2 id="titulo">Letra y traducción</h2>
-      <div class="cab"><span>English</span><span>Español</span></div>
+      <div class="row" style="margin:0 0 12px">
+        <button class="go" id="todoBtn">▶ Escuchar todo</button>
+        <label class="mut" for="modo">Escuchar:</label>
+        <select id="modo" aria-label="Qué escuchar"><option value="ambos">Inglés y luego español</option><option value="en">Solo inglés</option><option value="es">Solo español</option></select>
+      </div>
+      <div class="cab"><span>English</span><span>Español natural</span></div>
       <div id="pares"></div>
       <p class="mut" id="fuente" style="margin:12px 0 0"></p>
     </section>
@@ -114,36 +121,74 @@ function lineas() {
   return out;
 }
 const ne = () => lineas().filter(Boolean);
-const trad = () => (rd(TKEY, {})[V.id] || { lineas: [], fuente: "" });
-function guardarTrad(arr, fuente) { const t = rd(TKEY, {}); t[V.id] = { lineas: arr, fuente }; wr(TKEY, t); }
+const trad = () => { const t = rd(TKEY, {})[V.id] || {}; return { lineas: t.lineas || [], notas: t.notas || [], fuente: t.fuente || "" }; };
+function guardarTrad(arr, fuente, notas) { const t = rd(TKEY, {}); t[V.id] = { lineas: arr, notas: notas || [], fuente }; wr(TKEY, t); }
 
-// ---- Escuchar una frase (un clic reproduce, otro detiene) ----
-let hablando = null;
-function parar() { try { speechSynthesis.cancel(); } catch {} if (hablando) hablando.textContent = "🔊"; hablando = null; }
-function leer(txt, btn) {
-  if (hablando === btn) { parar(); return; }
-  parar();
+// ---- Escuchar (inglés y español). Un clic reproduce, otro clic detiene ----
+let hablando = null, corrida = 0;
+function voz(lang) {
   try {
-    const u = new SpeechSynthesisUtterance(txt); u.lang = "en-US"; u.rate = 0.9;
-    u.onend = u.onerror = () => { if (hablando === btn) parar(); };
-    hablando = btn; btn.textContent = "⏹"; speechSynthesis.speak(u);
+    const vs = speechSynthesis.getVoices();
+    for (const o of (lang === "es" ? ["es-US", "es-MX", "es-ES"] : ["en-US"])) { const v = vs.find(x => x.lang.replace("_", "-") === o); if (v) return v; }
   } catch {}
+  return null;
 }
+function decir(txt, lang, rate) {
+  return new Promise(ok => {
+    try {
+      const u = new SpeechSynthesisUtterance(txt); u.lang = lang === "es" ? "es-US" : "en-US"; u.rate = rate;
+      const v = voz(lang); if (v) { u.voice = v; u.lang = v.lang; }
+      u.onend = u.onerror = ok; speechSynthesis.speak(u);
+    } catch { ok(); }
+  });
+}
+function parar() {
+  corrida++; try { speechSynthesis.cancel(); } catch {}
+  if (hablando) hablando.textContent = "🔊"; hablando = null;
+  $("todoBtn").textContent = "▶ Escuchar todo";
+  document.querySelectorAll(".sonando").forEach(e => e.classList.remove("sonando"));
+}
+async function leer(txt, btn, lang) {
+  if (hablando === btn) { parar(); return; }
+  parar(); hablando = btn; btn.textContent = "⏹";
+  await decir(txt, lang, 0.9);
+  if (hablando === btn) parar();
+}
+async function reproducirTodo() {
+  if ($("todoBtn").textContent.startsWith("⏹")) { parar(); return; }
+  parar(); const mi = corrida; $("todoBtn").textContent = "⏹ Detener";
+  const modo = $("modo").value, filas = [...document.querySelectorAll(".par")];
+  for (const f of filas) {
+    if (corrida !== mi) return;
+    f.classList.add("sonando"); f.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (modo !== "es") await decir(f.dataset.en, "en", 0.9);
+    if (corrida !== mi) return;
+    if (modo !== "en" && f.dataset.es) await decir(f.dataset.es, "es", 0.95);
+    f.classList.remove("sonando");
+  }
+  if (corrida === mi) parar();
+}
+$("todoBtn").onclick = reproducirTodo;
 
 function pintar() {
-  const L = lineas(), t = trad().lineas;
+  const L = lineas(), T = trad(), t = T.lineas, notas = T.notas;
   $("sinletra").hidden = L.length > 0; $("panel").hidden = L.length === 0; $("letraCard").hidden = L.length === 0;
   if (!L.length) return;
   const cont = $("pares"); cont.innerHTML = "";
   let k = 0, hechas = 0;
   L.forEach(s => {
     if (!s) { const d = document.createElement("div"); d.className = "esp"; cont.append(d); return; }
-    const tr = t[k++] || ""; if (tr) hechas++;
-    const d = document.createElement("div"); d.className = "par";
+    const tr = t[k] || "", nota = notas[k] || ""; k++; if (tr) hechas++;
+    const d = document.createElement("div"); d.className = "par"; d.dataset.en = s; d.dataset.es = tr;
     const en = document.createElement("div"); en.className = "en";
-    const b = document.createElement("button"); b.className = "go sec sm"; b.textContent = "🔊"; b.title = "Escuchar esta frase"; b.setAttribute("aria-label", "Escuchar: " + s); b.onclick = () => leer(s, b);
+    const b = document.createElement("button"); b.className = "go sec sm"; b.textContent = "🔊"; b.title = "Escuchar en inglés"; b.setAttribute("aria-label", "Escuchar en inglés: " + s); b.onclick = () => leer(s, b, "en");
     en.append(b, " ", s);
-    const es = document.createElement("div"); es.className = "es" + (tr ? "" : " vacio"); es.textContent = tr || "(sin traducir)";
+    const es = document.createElement("div"); es.className = "es" + (tr ? "" : " vacio");
+    if (tr) {
+      const b2 = document.createElement("button"); b2.className = "go sec sm"; b2.textContent = "🔊"; b2.title = "Escuchar en español"; b2.setAttribute("aria-label", "Escuchar en español: " + tr); b2.onclick = () => leer(tr, b2, "es");
+      es.append(b2, " ", tr);
+      if (nota) { const n = document.createElement("div"); n.className = "nota"; n.textContent = "💡 " + nota; es.append(n); }
+    } else es.textContent = "(sin traducir)";
     d.append(en, es); cont.append(d);
   });
   const f = trad().fuente;
@@ -174,9 +219,10 @@ $("auto").onclick = async () => {
 // ---- Traducción con Claude (claude.ai): copiar y pegar ----
 $("copiar").onclick = async () => {
   const L = ne();
-  const txt = `Traduce al español, frase por frase, esta letra de canción en inglés. Reglas:
-- Devuélveme SOLO las traducciones, una por línea, numeradas igual que el original (1., 2., 3., …), exactamente ${L.length} líneas, sin comentarios ni texto extra.
-- Traduce el sentido natural, no palabra por palabra; si hay un modismo o slang, usa su significado real.
+  const txt = `Traduce al español, frase por frase, esta letra de canción en inglés. La traducción debe ser NATURAL: tal como la entendería un hablante nativo de Estados Unidos que la escucha, es decir, el sentido real de cada frase y no una traducción palabra por palabra. Reglas:
+- Devuélveme SOLO las traducciones, una por línea, numeradas igual que el original (1., 2., 3., …), exactamente ${L.length} líneas, sin texto extra antes ni después.
+- Escribe el español como se diría de forma natural (en español neutro de Latinoamérica).
+- Si la frase tiene un modismo, slang, doble sentido o una referencia cultural, traduce su significado real y añade al final de la línea " || " seguido de una nota muy breve que explique lo que un estadounidense entiende (por ejemplo: "3. Estoy loco por ti || 'fall for' = enamorarse de alguien"). Si no hay nada especial, no pongas nota.
 - No repitas el texto en inglés.
 
 LETRA (${L.length} líneas) de "${V.titulo}":
@@ -186,12 +232,13 @@ ${L.map((s, i) => `${i + 1}. ${s}`).join("\n")}`;
 };
 $("guardaTrad").onclick = () => {
   const n = ne().length, L = $("pega").value.replace(/\r/g, "").split("\n").map(s => s.trim()).filter(Boolean);
-  const num = L.filter(s => /^\d+[.)]\s*/.test(s)), res = new Array(n).fill("");
-  if (num.length >= n * 0.8) num.forEach(s => { const m = s.match(/^(\d+)[.)]\s*(.*)$/); const i = +m[1] - 1; if (i >= 0 && i < n) res[i] = m[2]; });
-  else L.forEach((s, i) => { if (i < n) res[i] = s.replace(/^\d+[.)]\s*/, ""); });
+  const num = L.filter(s => /^\d+[.)]\s*/.test(s)), res = new Array(n).fill(""), notas = new Array(n).fill("");
+  const poner = (i, s) => { const [a, ...b] = s.split("||"); res[i] = a.trim(); notas[i] = b.join("||").trim(); };
+  if (num.length >= n * 0.8) num.forEach(s => { const m = s.match(/^(\d+)[.)]\s*(.*)$/); const i = +m[1] - 1; if (i >= 0 && i < n) poner(i, m[2]); });
+  else L.forEach((s, i) => { if (i < n) poner(i, s.replace(/^\d+[.)]\s*/, "")); });
   const hechas = res.filter(Boolean).length;
   if (!hechas) { $("msg").textContent = "No encontré traducción en el texto pegado."; return; }
-  guardarTrad(res, "claude"); $("pega").value = ""; pintar();
+  guardarTrad(res, "claude", notas); $("pega").value = ""; pintar();
   $("msg").textContent = hechas === n ? "✅ Traducción guardada." : `Guardada, pero recibí ${hechas} de ${n} frases. Pídele a Claude que complete las que faltan.`;
 };
 $("guardaLetra").onclick = () => { const t = $("letraIn").value.trim(); if (!t) return; const l = rd(LKEY, {}); l[V.id] = t; wr(LKEY, l); pintar(); };
