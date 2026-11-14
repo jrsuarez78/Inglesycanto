@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mis estadísticas</title>
+<style>
+  :root {
+    --bg:#fff8f0; --card:#ffffff; --fg:#2b2140; --mut:#7a6f8c; --bd:#eadfd2;
+    --p1:#ff6b6b; --p2:#ffa94d; --p3:#845ef7; --hov:#f6efff; --sh:0 6px 20px rgba(80,40,120,.10);
+    --ok:#2f9e44; --bad:#e03131; --mid:#e67700; --grid:#eadfd2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#17121f; --card:#221b30; --fg:#f4eefc; --mut:#a99cc0; --bd:#352b49; --hov:#2d2342; --sh:0 6px 20px rgba(0,0,0,.4); --ok:#69db7c; --bad:#ff8787; --mid:#ffa94d; --grid:#352b49; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 "Segoe UI",system-ui,sans-serif; }
+  .wrap { max-width:1000px; margin:0 auto; padding:0 16px 40px; }
+  header.hero { padding:24px 16px 40px; color:#fff; background:linear-gradient(135deg,var(--p3),var(--p1) 60%,var(--p2)); border-radius:0 0 32px 32px; text-align:center; }
+  .hero h1 { margin:8px 0 4px; font-size:clamp(1.4rem,4.5vw,2.1rem); }
+  .hero p { margin:0; opacity:.92; }
+  .nav { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .back { color:#fff; text-decoration:none; background:rgba(255,255,255,.2); padding:6px 14px; border-radius:999px; font-size:.9rem; }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:20px; padding:18px; box-shadow:var(--sh); margin-top:18px; }
+  .card h2 { margin:0 0 10px; font-size:1.1rem; }
+  .mut { color:var(--mut); font-size:.9rem; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  .kpi { border:1px solid var(--bd); border-radius:16px; padding:12px 14px; }
+  .kpi b { display:block; font-size:1.9rem; line-height:1.1; }
+  .kpi span { color:var(--mut); font-size:.82rem; }
+  select { padding:8px 14px; border:1px solid var(--bd); border-radius:999px; background:var(--bg); color:var(--fg); font:inherit; max-width:100%; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .chartwrap { overflow-x:auto; }
+  svg text { fill:var(--mut); font-size:11px; font-family:inherit; }
+  .fila { display:grid; grid-template-columns:minmax(0,1.6fr) 60px 56px 56px 56px 96px 70px; gap:10px; align-items:center; padding:9px 4px; border-top:1px solid var(--bd); font-size:.92rem; }
+  .fila.cab { border-top:0; color:var(--mut); font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; }
+  .fila .t { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tabla { overflow-x:auto; } .tabla .fila { min-width:640px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { border:1px solid var(--bd); border-radius:999px; padding:3px 12px; font-size:.9rem; }
+  .chip b { color:var(--bad); }
+  .bars { display:flex; align-items:flex-end; gap:6px; height:100px; margin:24px 0 6px; }
+  .bar { flex:1; max-width:44px; background:linear-gradient(180deg,var(--p3),var(--p1)); border-radius:6px 6px 0 0; position:relative; min-height:14px; }
+  .bar span { position:absolute; top:-18px; left:0; right:0; text-align:center; font-size:.72rem; color:var(--mut); }
+  a.go { background:linear-gradient(135deg,var(--p3),var(--p1)); color:#fff; padding:8px 16px; border-radius:999px; text-decoration:none; font-size:.9rem; display:inline-block; }
+  a.sm { padding:3px 10px; font-size:.8rem; }
+  .vacio { text-align:center; padding:40px 8px; }
+  a:focus-visible, select:focus-visible { outline:3px solid var(--p3); outline-offset:2px; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="nav"><a class="back" href="./">← Dashboard</a><a class="back" href="practica.html">🎯 Practicar frases</a><a class="back" href="traduccion.html">🌐 Traducción</a></div>
+  <h1>📊 Cómo vas mejorando</h1>
+  <p>Tu progreso de pronunciación, frase por frase.</p>
+</header>
+
+<main class="wrap">
+  <div class="card vacio" id="vacio" hidden>
+    <div style="font-size:2.4rem">📈</div>
+    <p>Aún no hay estadísticas. Practica algunas frases y vuelve aquí para ver tu progreso.</p>
+    <a class="go" href="practica.html">Ir a practicar frases</a>
+  </div>
+
+  <div id="todo" hidden>
+    <section class="card">
+      <div class="row"><label class="mut" for="vsel">Canción:</label><select id="vsel" aria-label="Canción"></select></div>
+      <div class="kpis" id="kpis" style="margin-top:14px"></div>
+      <p class="mut" id="lectura" style="margin:12px 0 0"></p>
+    </section>
+
+    <section class="card">
+      <h2>Evolución de tus intentos</h2>
+      <p class="mut" style="margin:0">Cada punto es un intento de una frase, en orden de fecha. La línea gruesa es el promedio de los últimos 5 intentos.</p>
+      <div class="chartwrap" id="chart"></div>
+    </section>
+
+    <section class="card">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">Frase por frase</h2>
+        <label class="mut">Ordenar: <select id="orden" aria-label="Ordenar frases"><option value="dificil">Más difíciles primero</option><option value="mejora">Mayor mejora primero</option><option value="reciente">Más recientes primero</option><option value="practicas">Más practicadas primero</option></select></label></div>
+      <div class="tabla" id="tabla" style="margin-top:8px"></div>
+    </section>
+
+    <section class="card" id="palCard">
+      <h2>Palabras que más se te dificultan</h2>
+      <div class="chips" id="pal"></div>
+    </section>
+
+    <section class="card" id="cantCard" hidden>
+      <h2>Cantando la canción completa</h2>
+      <div class="bars" id="cant" aria-label="Calificación de cada vez que cantaste la canción"></div>
+      <p class="mut" id="cantTxt" style="margin:0"></p>
+    </section>
+  </div>
+</main>
+
+<script>
+const KEY = "videoscurso.activo", FKEY = "videoscurso.frases", HKEY = "videoscurso.historial", SKEY = "videoscurso.sesiones";
+const META = 85;
+const $ = id => document.getElementById(id);
+const rd = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
+const color = p => p >= META ? "var(--ok)" : p >= 50 ? "var(--mid)" : "var(--bad)";
+const fch = t => new Date(t).toLocaleDateString("es", { day: "numeric", month: "short" });
+
+const FR = rd(FKEY, {}), activo = rd(KEY, null);
+const ids = Object.keys(FR).filter(id => Object.values(FR[id]).some(e => e.intentos && e.intentos.length));
+const titulos = {};
+rd(SKEY, []).forEach(s => { titulos[s.videoId] = s.titulo; });
+rd(HKEY, []).forEach(v => { titulos[v.id] = v.titulo; });
+if (activo) titulos[activo.id] = activo.titulo;
+
+function datos(id) {
+  const entradas = Object.entries(FR[id] || {}).filter(([, e]) => e.intentos && e.intentos.length).map(([k, e]) => ({
+    k, texto: e.texto, h: e.intentos.map(x => x.pct), t: e.intentos.map(x => x.t), mal: e.intentos.flatMap(x => x.mal || [])
+  }));
+  const todos = []; entradas.forEach(e => e.h.forEach((p, i) => todos.push({ p, t: e.t[i] })));
+  todos.sort((a, b) => a.t - b.t);
+  return { entradas, todos };
+}
+
+function grafica(todos) {
+  if (todos.length < 2) return `<p class="mut">Necesitas al menos 2 intentos para ver la evolución.</p>`;
+  const W = 640, H = 240, L = 34, R = 14, T = 14, B = 34, iw = W - L - R, ih = H - T - B;
+  const x = i => L + (todos.length === 1 ? 0 : iw * i / (todos.length - 1)), y = p => T + ih * (1 - p / 100);
+  const ma = todos.map((_, i) => mean(todos.slice(Math.max(0, i - 4), i + 1).map(d => d.p)));
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:420px" role="img" aria-label="Evolución del porcentaje de pronunciación por intento">`;
+  [0, 25, 50, 75, 100].forEach(g => { s += `<line x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}" style="stroke:var(--grid)" stroke-width="1"/><text x="${L - 6}" y="${y(g) + 4}" text-anchor="end">${g}</text>`; });
+  s += `<line x1="${L}" x2="${W - R}" y1="${y(META)}" y2="${y(META)}" style="stroke:var(--ok)" stroke-width="1.5" stroke-dasharray="5 4"/><text x="${W - R}" y="${y(META) - 5}" text-anchor="end" style="fill:var(--ok)">Meta ${META}%</text>`;
+  todos.forEach((d, i) => { s += `<circle cx="${x(i)}" cy="${y(d.p)}" r="3" style="fill:var(--p3);opacity:.35"/>`; });
+  s += `<polyline points="${ma.map((m, i) => x(i) + "," + y(m)).join(" ")}" fill="none" style="stroke:var(--p3)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const li = todos.length - 1; s += `<circle cx="${x(li)}" cy="${y(ma[li])}" r="5" style="fill:var(--p1)"/><text x="${x(li) - 8}" y="${y(ma[li]) - 9}" text-anchor="end" style="fill:var(--fg);font-weight:600">${Math.round(ma[li])}%</text>`;
+  s += `<text x="${L}" y="${H - 10}">${fch(todos[0].t)}</text><text x="${W - R}" y="${H - 10}" text-anchor="end">${fch(todos[li].t)} · ${todos.length} intentos</text></svg>`;
+  return s;
+}
+function spark(h) {
+  const W = 90, H = 26, n = h.length, x = i => n === 1 ? W / 2 : 4 + (W - 8) * i / (n - 1), y = p => 3 + (H - 6) * (1 - p / 100);
+  const pts = h.map((p, i) => x(i) + "," + y(p)).join(" ");
+  return `<svg viewBox="0 0 ${W} ${H}" width="90" height="26" aria-hidden="true">${n > 1 ? `<polyline points="${pts}" fill="none" style="stroke:var(--p3)" stroke-width="2" stroke-linejoin="round"/>` : ""}<circle cx="${x(n - 1)}" cy="${y(h[n - 1])}" r="3.5" style="fill:${color(h[n - 1])}"/></svg>`;
+}
+
+function pintar(id) {
+  const { entradas, todos } = datos(id);
+  const primeros = entradas.map(e => e.h[0]), ultimos = entradas.map(e => e.h[e.h.length - 1]);
+  const dom = ultimos.filter(p => p >= META).length;
+  const conMejora = entradas.filter(e => e.h.length > 1).map(e => e.h[e.h.length - 1] - e.h[0]);
+  const mejoraMedia = conMejora.length ? Math.round(mean(conMejora)) : null;
+  const k = (v, t, c) => `<div class="kpi"><b style="color:${c || "var(--fg)"}">${v}</b><span>${t}</span></div>`;
+  $("kpis").innerHTML = k(Math.round(mean(ultimos)) + "%", "promedio actual", color(mean(ultimos))) + k(Math.round(mean(primeros)) + "%", "promedio en tu primer intento")
+    + k(mejoraMedia === null ? "—" : (mejoraMedia > 0 ? "+" : "") + mejoraMedia, "puntos de mejora por frase", mejoraMedia === null ? "" : mejoraMedia > 0 ? "var(--ok)" : mejoraMedia < 0 ? "var(--bad)" : "")
+    + k(`${dom} / ${entradas.length}`, "frases dominadas (≥" + META + "%)") + k(todos.length, "intentos en total");
+  const d = Math.round(mean(ultimos) - mean(primeros));
+  $("lectura").textContent = entradas.length ? (d >= 3 ? `Vas bien: tu promedio subió ${d} puntos desde tu primer intento en cada frase.`
+    : d <= -3 ? `Tu promedio bajó ${-d} puntos respecto a tu primer intento. Repite las frases más difíciles con calma.` : "Tu promedio se mantiene estable. Repite las frases con menos porcentaje para subirlo.") : "";
+  $("chart").innerHTML = grafica(todos);
+
+  const orden = $("orden").value, enlaza = activo && activo.id === id;
+  const f = e => ({ e, u: e.h[e.h.length - 1], m: Math.max(...e.h), d: e.h[e.h.length - 1] - e.h[0], r: e.t[e.t.length - 1] });
+  const filas = entradas.map(f).sort((a, b) => orden === "dificil" ? a.u - b.u : orden === "mejora" ? b.d - a.d : orden === "reciente" ? b.r - a.r : b.e.h.length - a.e.h.length);
+  $("tabla").innerHTML = `<div class="fila cab"><span>Frase</span><span>Intentos</span><span>1.º</span><span>Último</span><span>Mejor</span><span>Evolución</span><span></span></div>` + filas.map(({ e, u, m, d }) => `
+    <div class="fila"><span class="t" title="${esc(e.texto)}">${esc(e.texto)}</span><span>${e.h.length}</span><span>${e.h[0]}%</span>
+    <span><b style="color:${color(u)}">${u}%</b>${e.h.length > 1 ? ` <small style="color:${d > 0 ? "var(--ok)" : d < 0 ? "var(--bad)" : "var(--mut)"}">${d > 0 ? "▲" + d : d < 0 ? "▼" + (-d) : "="}</small>` : ""}</span><span>${m}%</span><span>${spark(e.h)}</span>
+    <span>${enlaza ? `<a class="go sm" href="practica.html?p=${encodeURIComponent(e.k)}">Practicar</a>` : ""}</span></div>`).join("");
+
+  const cuenta = {}; entradas.forEach(e => e.mal.forEach(w => { cuenta[w] = (cuenta[w] || 0) + 1; }));
+  const top = Object.entries(cuenta).filter(([w]) => w.length > 2).sort((a, b) => b[1] - a[1]).slice(0, 12);
+  $("pal").innerHTML = top.length ? top.map(([w, n]) => `<span class="chip">${esc(w)} <b>×${n}</b></span>`).join("") : `<span class="mut">Todavía no hay palabras repetidas con errores. ¡Bien!</span>`;
+
+  const ses = rd(SKEY, []).filter(s => s.videoId === id).sort((a, b) => a.id - b.id);
+  $("cantCard").hidden = ses.length === 0;
+  $("cant").innerHTML = ses.slice(-10).map(s => `<div class="bar" style="height:${Math.max(s.score, 4)}%" title="${new Date(s.fecha).toLocaleString("es")}"><span>${s.score}</span></div>`).join("");
+  $("cantTxt").textContent = ses.length > 1 ? `Primera vez: ${ses[0].score}% · Última vez: ${ses[ses.length - 1].score}% · Mejor: ${Math.max(...ses.map(s => s.score))}%` : ses.length ? `Una vez: ${ses[0].score}%. Vuelve a cantarla para comparar.` : "";
+}
+
+if (!ids.length) $("vacio").hidden = false;
+else {
+  $("todo").hidden = false;
+  ids.forEach(id => { const o = document.createElement("option"); o.value = id; o.textContent = titulos[id] || id; $("vsel").append(o); });
+  $("vsel").value = activo && ids.includes(activo.id) ? activo.id : ids[0];
+  $("vsel").onchange = () => pintar($("vsel").value); $("orden").onchange = () => pintar($("vsel").value);
+  pintar($("vsel").value);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Practicar frases</title>
+<style>
+  :root {
+    --bg:#fff8f0; --card:#ffffff; --fg:#2b2140; --mut:#7a6f8c; --bd:#eadfd2;
+    --p1:#ff6b6b; --p2:#ffa94d; --p3:#845ef7; --hov:#f6efff; --sh:0 6px 20px rgba(80,40,120,.10);
+    --ok:#2f9e44; --bad:#e03131; --okbg:#e6fcf5; --badbg:#ffe3e3; --mid:#e67700;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#17121f; --card:#221b30; --fg:#f4eefc; --mut:#a99cc0; --bd:#352b49; --hov:#2d2342; --sh:0 6px 20px rgba(0,0,0,.4); --ok:#69db7c; --bad:#ff8787; --okbg:#1f3a33; --badbg:#4a2230; --mid:#ffa94d; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 "Segoe UI",system-ui,sans-serif; }
+  .wrap { max-width:1000px; margin:0 auto; padding:0 16px 40px; }
+  header.hero { padding:24px 16px 40px; color:#fff; background:linear-gradient(135deg,var(--p3),var(--p1) 60%,var(--p2)); border-radius:0 0 32px 32px; text-align:center; }
+  .hero h1 { margin:8px 0 4px; font-size:clamp(1.4rem,4.5vw,2.1rem); }
+  .hero p { margin:0; opacity:.92; }
+  .nav { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .back { color:#fff; text-decoration:none; background:rgba(255,255,255,.2); padding:6px 14px; border-radius:999px; font-size:.9rem; }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:20px; padding:18px; box-shadow:var(--sh); margin-top:18px; }
+  .card h2 { margin:0 0 10px; font-size:1.1rem; }
+  .mut { color:var(--mut); font-size:.9rem; }
+  .grid { display:grid; grid-template-columns:1.25fr 1fr; gap:18px; align-items:start; }
+  @media (max-width:760px) { .grid { grid-template-columns:1fr; } .lista { max-height:340px; } }
+  .frase { font-size:clamp(1.3rem,3.6vw,1.8rem); font-weight:700; line-height:1.3; margin:6px 0; overflow-wrap:anywhere; }
+  .trad { color:var(--mut); margin-bottom:10px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+  button.go, a.go { border:0; background:linear-gradient(135deg,var(--p3),var(--p1)); color:#fff; padding:10px 18px; border-radius:999px; cursor:pointer; font-size:.95rem; text-decoration:none; }
+  button.go.sec, a.go.sec { background:var(--card); color:var(--fg); border:1px solid var(--bd); }
+  button.go.rec { background:var(--bad); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .marks span { display:inline-block; padding:1px 7px; margin:2px 3px 2px 0; border-radius:8px; font-weight:600; }
+  .marks .ok { background:var(--okbg); color:var(--ok); } .marks .bad { background:var(--badbg); color:var(--bad); }
+  .big { font-size:2.6rem; font-weight:700; line-height:1; }
+  .prog { height:10px; border-radius:99px; background:var(--hov); overflow:hidden; margin:8px 0 4px; }
+  .prog i { display:block; height:100%; background:linear-gradient(90deg,var(--p3),var(--p1)); }
+  .lista { max-height:560px; overflow-y:auto; }
+  .it { display:flex; gap:10px; align-items:center; width:100%; text-align:left; background:transparent; color:var(--fg); border:0; border-top:1px solid var(--bd); padding:9px 6px; cursor:pointer; font:inherit; }
+  .it:first-child { border-top:0; } .it:hover { background:var(--hov); } .it.sel { background:var(--hov); box-shadow:inset 3px 0 0 var(--p3); }
+  .it .t { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .it b { font-size:.85rem; min-width:46px; text-align:right; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .chip { border:1px solid var(--bd); border-radius:999px; padding:2px 10px; font-size:.82rem; }
+  .vacio { text-align:center; padding:40px 8px; }
+  a:focus-visible, button:focus-visible { outline:3px solid var(--p3); outline-offset:2px; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="nav"><a class="back" href="./">← Dashboard</a><a class="back" href="traduccion.html">🌐 Traducción</a><a class="back" href="estadisticas.html">📊 Mis estadísticas</a></div>
+  <h1>🎯 Practica frase por frase</h1>
+  <p id="sub">Di cada frase en inglés y recibe tu porcentaje. Repite las veces que quieras.</p>
+</header>
+
+<main class="wrap">
+  <div class="card vacio" id="sinvideo" hidden>
+    <div style="font-size:2.4rem">🎶</div>
+    <p id="sinmsg">Primero escoge una canción en el dashboard.</p>
+    <a class="go" href="./">Ir al dashboard</a>
+  </div>
+
+  <div id="todo" hidden>
+    <section class="card">
+      <div class="mut" id="resumen"></div>
+      <div class="prog" aria-hidden="true"><i id="barra" style="width:0"></i></div>
+      <div class="mut" id="resumen2"></div>
+    </section>
+
+    <div class="grid">
+      <section class="card" id="panel" style="margin-top:18px">
+        <div class="mut" id="cont"></div>
+        <div class="frase" id="frase"></div>
+        <div class="trad" id="trad"></div>
+        <div class="row">
+          <button class="go sec" id="oir">🔊 Modelo</button>
+          <button class="go sec" id="oirl">🐢 Lento</button>
+          <button class="go" id="rec">🎤 Decir la frase</button>
+        </div>
+        <div class="row">
+          <button class="go sec" id="prev">⏮ Anterior</button>
+          <button class="go sec" id="next">Siguiente ⏭</button>
+        </div>
+        <div id="res" style="margin-top:14px" aria-live="polite"></div>
+      </section>
+
+      <section class="card">
+        <h2>Frases de la canción</h2>
+        <div class="lista" id="lista"></div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script>
+const KEY = "videoscurso.activo", LKEY = "videoscurso.letras", TKEY = "videoscurso.trad", FKEY = "videoscurso.frases";
+const META = 85;
+const $ = id => document.getElementById(id);
+const rd = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+// Contracciones habladas: se expanden en ambos lados para que "gonna" y "going to" cuenten igual.
+const expand = t => String(t).replace(/[’‘]/g, "'").replace(/\bgonna\b/gi, "going to").replace(/\bwanna\b/gi, "want to").replace(/\bgotta\b/gi, "got to")
+  .replace(/'cause\b|\bcause\b|\bcuz\b/gi, "because").replace(/\bkinda\b/gi, "kind of").replace(/\blemme\b/gi, "let me").replace(/\bgimme\b/gi, "give me");
+const norm = t => (expand(t).toLowerCase().match(/[a-z']+/g) || []).map(w => w.replace(/^'+|'+$/g, "")).filter(Boolean);
+const claveDe = t => norm(t).join(" ");
+
+const V = rd(KEY, null);
+let frases = [], sel = 0;
+
+if (!V) $("sinvideo").hidden = false;
+else {
+  const lineas = (rd(LKEY, {})[V.id] || "").replace(/\r/g, "").split("\n").map(s => s.trim()).filter(Boolean);
+  const tr = (rd(TKEY, {})[V.id] || {}).lineas || [];
+  const vistas = new Set();
+  lineas.forEach((s, i) => { const k = claveDe(s); if (k && !vistas.has(k)) { vistas.add(k); frases.push({ texto: s, k, es: tr[i] || "" }); } });
+  if (!frases.length) { $("sinvideo").hidden = false; $("sinmsg").textContent = "Esta canción no tiene letra cargada. Ve a la página de traducción y pégala."; }
+  else {
+    $("todo").hidden = false; $("sub").textContent = V.titulo;
+    const p = new URLSearchParams(location.search).get("p");
+    if (p) { const i = frases.findIndex(f => f.k === p); if (i >= 0) sel = i; }
+  }
+}
+
+// ---- Datos de intentos ----
+const intentos = k => { const d = (rd(FKEY, {})[V.id] || {})[k]; return d ? d.intentos : []; };
+function guardarIntento(f, a) {
+  const all = rd(FKEY, {}); const v = all[V.id] = all[V.id] || {};
+  const e = v[f.k] = v[f.k] || { texto: f.texto, intentos: [] };
+  e.texto = f.texto; e.intentos.push(a); e.intentos = e.intentos.slice(-30);
+  wr(FKEY, all);
+}
+// ---- Audio de tu voz: se conserva el último intento de cada frase (IndexedDB) ----
+const db = () => new Promise((ok, no) => { const r = indexedDB.open("videoscurso", 1); r.onupgradeneeded = () => r.result.createObjectStore("audios"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+async function audioPut(id, blob) { try { const d = await db(); await new Promise((ok, no) => { const tx = d.transaction("audios", "readwrite"); tx.objectStore("audios").put(blob, id); tx.oncomplete = ok; tx.onerror = () => no(tx.error); }); } catch {} }
+async function audioGet(id) { try { const d = await db(); return await new Promise((ok, no) => { const q = d.transaction("audios").objectStore("audios").get(id); q.onsuccess = () => ok(q.result || null); q.onerror = () => no(q.error); }); } catch { return null; } }
+const aid = f => "fr:" + V.id + ":" + f.k;
+
+// ---- Evaluación: alinea lo que oyó el reconocedor con la frase objetivo ----
+function evaluar(objetivo, oido, conf) {
+  const T = norm(objetivo), H = norm(oido), n = T.length, m = H.length; if (!n) return null;
+  const dp = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+  for (let i = 1; i <= n; i++) for (let j = 1; j <= m; j++) dp[i][j] = T[i - 1] === H[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+  const hit = new Array(n).fill(false);
+  for (let i = n, j = m; i > 0 && j > 0;) { if (T[i - 1] === H[j - 1]) { hit[i - 1] = true; i--; j--; } else if (dp[i - 1][j] >= dp[i][j - 1]) i--; else j--; }
+  const c = conf > 0 ? conf : 1; let suma = 0, ok = 0;
+  hit.forEach(h => { if (h) { ok++; suma += 0.7 + 0.3 * c; } });
+  return { pct: Math.round(100 * suma / n), ok, cnt: n, marks: T.map((w, i) => [w, hit[i] ? 1 : 0]) };
+}
+
+// ---- Voz del modelo y de tu grabación (un clic reproduce, otro detiene) ----
+let sonando = null;
+function parar() { try { speechSynthesis.cancel(); } catch {} if (sonando) { if (sonando.audio) sonando.audio.pause(); sonando.btn.textContent = sonando.txt; } sonando = null; }
+function modelo(rate, btn) {
+  if (sonando && sonando.btn === btn) { parar(); return; }
+  parar();
+  try {
+    const u = new SpeechSynthesisUtterance(frases[sel].texto); u.lang = "en-US"; u.rate = rate;
+    const v = speechSynthesis.getVoices().find(x => /^en-US/i.test(x.lang)); if (v) u.voice = v;
+    sonando = { btn, txt: btn.textContent }; btn.textContent = "⏹ Detener";
+    u.onend = u.onerror = () => { if (sonando && sonando.btn === btn) parar(); };
+    speechSynthesis.speak(u);
+  } catch {}
+}
+async function miVoz(btn) {
+  if (sonando && sonando.btn === btn) { parar(); return; }
+  parar();
+  const b = await audioGet(aid(frases[sel])); if (!b) { btn.textContent = "Sin audio"; return; }
+  const audio = new Audio(URL.createObjectURL(b));
+  sonando = { btn, txt: "▶ Mi voz", audio }; btn.textContent = "⏹ Detener";
+  audio.onended = () => { if (sonando && sonando.audio === audio) parar(); };
+  audio.play().catch(() => parar());
+}
+
+// ---- Pantalla ----
+const color = p => p >= META ? "var(--ok)" : p >= 50 ? "var(--mid)" : "var(--bad)";
+function pintar() {
+  parar();
+  const f = frases[sel], h = intentos(f.k);
+  $("cont").textContent = `Frase ${sel + 1} de ${frases.length}`;
+  $("frase").textContent = f.texto; $("trad").textContent = f.es || "";
+  $("prev").disabled = sel === 0; $("next").disabled = sel === frases.length - 1;
+  $("res").innerHTML = h.length ? `<div class="mut">Último intento: <b style="color:${color(h[h.length - 1].pct)}">${h[h.length - 1].pct}%</b> · Mejor: ${Math.max(...h.map(x => x.pct))}% · Intentos: ${h.length}</div>` : `<div class="mut">Aún no has practicado esta frase. Escucha el modelo y pulsa «Decir la frase».</div>`;
+  pintarLista(); pintarResumen();
+}
+function pintarLista() {
+  const l = $("lista"); l.innerHTML = "";
+  frases.forEach((f, i) => {
+    const h = intentos(f.k), u = h.length ? h[h.length - 1].pct : null;
+    const b = document.createElement("button"); b.className = "it" + (i === sel ? " sel" : "");
+    b.innerHTML = `<span class="t">${esc(f.texto)}</span><b style="color:${u === null ? "var(--mut)" : color(u)}">${u === null ? "—" : u + "%" + (u >= META ? " ✓" : "")}</b>`;
+    b.onclick = () => { sel = i; pintar(); };
+    l.append(b);
+  });
+  const act = l.querySelector(".sel"); if (act) act.scrollIntoView({ block: "nearest" });
+}
+function pintarResumen() {
+  const ult = frases.map(f => { const h = intentos(f.k); return h.length ? h[h.length - 1].pct : null; });
+  const hechas = ult.filter(x => x !== null), dom = hechas.filter(x => x >= META).length;
+  const prom = hechas.length ? Math.round(hechas.reduce((a, b) => a + b, 0) / hechas.length) : 0;
+  $("resumen").textContent = `Practicadas ${hechas.length} de ${frases.length} · Dominadas (${META}% o más) ${dom} · Promedio actual ${prom}%`;
+  $("barra").style.width = Math.round(100 * dom / frases.length) + "%";
+  $("resumen2").innerHTML = `<a href="estadisticas.html" style="color:var(--p3)">Ver cómo vas mejorando →</a>`;
+}
+
+// ---- Grabar y evaluar ----
+let grabando = null;
+$("rec").onclick = async () => {
+  if (grabando) { grabando.stop(); return; }
+  if (!SR) { $("res").textContent = "Tu navegador no permite reconocimiento de voz. Usa Chrome o Edge en computadora."; return; }
+  parar();
+  let stream; try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch { $("res").textContent = "Necesito permiso para usar el micrófono."; return; }
+  const f = frases[sel], chunks = [], mr = new MediaRecorder(stream); mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); }; mr.start();
+  const r = new SR(); r.lang = "en-US"; r.interimResults = false; r.continuous = false; r.maxAlternatives = 1;
+  let oido = null, conf = 0;
+  r.onresult = e => { oido = e.results[0][0].transcript; conf = e.results[0][0].confidence; };
+  r.onend = () => { grabando = null; $("rec").textContent = "🎤 Decir la frase"; $("rec").classList.remove("rec"); try { mr.stop(); } catch {} stream.getTracks().forEach(t => t.stop()); };
+  mr.onstop = async () => {
+    const blob = chunks.length ? new Blob(chunks, { type: mr.mimeType || "audio/webm" }) : null;
+    if (oido === null) { $("res").textContent = "No te escuché. Acércate al micrófono e inténtalo de nuevo."; return; }
+    const ev = evaluar(f.texto, oido, conf); if (!ev) return;
+    const h = intentos(f.k), prev = h.length ? h[h.length - 1].pct : null, mejor = h.length ? Math.max(...h.map(x => x.pct)) : null;
+    guardarIntento(f, { t: Date.now(), pct: ev.pct, ok: ev.ok, cnt: ev.cnt, mal: ev.marks.filter(m => !m[1]).map(m => m[0]) });
+    if (blob) await audioPut(aid(f), blob);
+    let v;
+    if (prev === null) v = "Primer intento con esta frase. Repítela para ver si mejoras.";
+    else if (ev.pct - prev >= 5) v = `✅ Mejoraste ${ev.pct - prev} puntos (antes ${prev}%).`;
+    else if (ev.pct - prev <= -5) v = `⚠️ Aún no: bajaste ${prev - ev.pct} puntos (antes ${prev}%).`;
+    else v = `➖ Igual que tu intento anterior (${prev}%).`;
+    if (mejor !== null && ev.pct > mejor) v += " 🏆 Es tu mejor resultado.";
+    if (ev.pct >= META) v += " 🎉 ¡Frase dominada!";
+    const faltan = ev.marks.filter(m => !m[1]).map(m => m[0]);
+    $("res").innerHTML = `<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><div class="big" style="color:${color(ev.pct)}">${ev.pct}%</div><div>${esc(v)}</div></div>
+      <div class="marks" style="margin-top:10px">${ev.marks.map(([w, ok]) => `<span class="${ok ? "ok" : "bad"}">${esc(w)}</span>`).join("")}</div>
+      <p class="mut" style="margin:6px 0 0">Oí: «${esc(oido)}»${faltan.length ? ` · Repite con cuidado: <b>${esc(faltan.join(", "))}</b>` : ""}</p>
+      <div class="row">${blob ? `<button class="go sec" id="mv">▶ Mi voz</button>` : ""}<button class="go" id="otra">🔁 Repetir</button>${sel < frases.length - 1 ? `<button class="go sec" id="sig">Siguiente ⏭</button>` : ""}</div>`;
+    if (blob) $("mv").onclick = () => miVoz($("mv"));
+    $("otra").onclick = () => $("rec").click();
+    if ($("sig")) $("sig").onclick = () => { sel++; pintar(); };
+    pintarLista(); pintarResumen();
+  };
+  grabando = r; $("rec").textContent = "⏹ Terminar"; $("rec").classList.add("rec"); $("res").textContent = "🔴 Escuchando… di la frase completa.";
+  try { r.start(); } catch { grabando = null; $("rec").textContent = "🎤 Decir la frase"; $("rec").classList.remove("rec"); stream.getTracks().forEach(t => t.stop()); }
+};
+$("oir").onclick = () => modelo(0.9, $("oir")); $("oirl").onclick = () => modelo(0.55, $("oirl"));
+$("prev").onclick = () => { if (sel > 0) { sel--; pintar(); } };
+$("next").onclick = () => { if (sel < frases.length - 1) { sel++; pintar(); } };
+if (V && frases.length) pintar(); // al final, cuando ya están definidas todas las funciones y constantes
+</script>
+</body>
+</html>
