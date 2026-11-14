@@ -335,7 +335,8 @@ function analizar(letra, segs) {
   }
   const cnt = b - a + 1;
   const lista = Object.entries(malas).map(([w, c]) => ({ w, n: c })).sort((x, y) => y.n - x.n || y.w.length - x.w.length);
-  return { modo: "letra", score: Math.round(100 * suma / cnt), cnt, ok, malas: lista, frases };
+  const mapa = L.slice(a, b + 1).map((w, i) => [w, hit[a + i] >= 0 ? 1 : 0]);
+  return { modo: "letra", score: Math.round(100 * suma / cnt), cnt, ok, malas: lista, frases, mapa };
 }
 
 function consejos(s) {
@@ -377,6 +378,13 @@ function comparacion(s) {
 }
 
 function mostrarResultado(s) {
+  const [lbl, col] = nivel(s.score);
+  $("result").innerHTML = `<div class="res2"><div class="score" style="color:${col}">${s.score}%</div>
+    <div><b>${lbl}</b><br><span class="mut">calidad de pronunciación estimada · ${fecha(s.fecha)}</span></div></div>
+    <p style="margin:8px 0 0">${esc(diagnostico(s)[0])}</p>
+    <div class="actions"><a class="go" href="analisis.html?id=${s.id}" style="margin-left:0">Ver análisis completo y practicar →</a></div>`;
+}
+function mostrarResultadoViejo(s) {
   const [lbl, col] = nivel(s.score);
   const pal = s.malas.filter(m => m.w.length >= 3).slice(0, 8);
   $("result").innerHTML = `
@@ -477,9 +485,10 @@ async function terminar() {
   if (!res) { aviso("No escuché tu voz. Acércate al micrófono, canta más fuerte y usa audífonos."); return; }
   const s = { id: Date.now(), videoId: v.id, titulo: v.titulo, fecha: new Date().toISOString(), ...res };
   s.aud = await audioPut(String(s.id), new Blob(chunks, { type: mr.mimeType || "audio/webm" }));
-  if (!res.sinCoincidencia) { const l = getSesiones(); l.push(s); wr(SKEY, l.slice(-60)); }
+  if (!res.sinCoincidencia) { const l = getSesiones(); l.push(s); wr(SKEY, l.slice(-30)); }
   aviso(res.sinCoincidencia ? "" : "Listo. Tu grabación quedó guardada en este navegador.");
   mostrarResultado(s); pintarSesiones(v);
+  if (!res.sinCoincidencia) location.href = "analisis.html?id=" + s.id; // el análisis completo se muestra en otra página
 }
 
 $("bCantar").onclick = () => (cantando ? terminar() : empezar());
@@ -492,7 +501,7 @@ $("result").addEventListener("click", e => { const b = e.target.closest("[data-w
 $("sesiones").addEventListener("click", async e => {
   const a = e.target.closest("[data-aud]"), ver = e.target.closest("[data-ver]");
   if (a) { const b = await audioGet(a.dataset.aud); if (!b) { a.textContent = "Sin audio"; return; } new Audio(URL.createObjectURL(b)).play(); }
-  if (ver) { const s = getSesiones().find(x => String(x.id) === ver.dataset.ver); if (s) { mostrarResultado(s); $("result").scrollIntoView({ behavior: "smooth", block: "nearest" }); } }
+  if (ver) { const s = getSesiones().find(x => String(x.id) === ver.dataset.ver); if (s) location.href = "analisis.html?id=" + s.id; }
 });
 
 // ---- Letra automática (lyrics.ovh) y nivel de dificultad ----
