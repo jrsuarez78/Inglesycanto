@@ -93,8 +93,9 @@
 
 <script>
 // Skill /videoscurso: el video activo es único para todo el programa.
-// Opcional: clave de YouTube Data API v3 para listar resultados aquí mismo.
-const YT_API_KEY = "";
+// Clave de YouTube Data API v3: se pega una vez en la página y queda solo en este navegador.
+const APIKEY = "videoscurso.apikey";
+const getKey = () => { try { return localStorage.getItem(APIKEY) || ""; } catch { return ""; } };
 const KEY = "videoscurso.activo", HKEY = "videoscurso.historial", NKEY = "videoscurso.notas";
 
 const $ = id => document.getElementById(id);
@@ -147,22 +148,32 @@ async function choose(text) {
   q.value = text; items = []; render();
   const term = /karaoke/i.test(text) ? text : text + " karaoke";
   const res = $("res"); res.innerHTML = "";
-  if (!YT_API_KEY) {
-    const url = "https://www.youtube.com/results?search_query=" + encodeURIComponent(term);
-    $("msg").innerHTML = `<a href="${url}" target="_blank" rel="noopener">Abre los resultados en YouTube</a>, copia el enlace del video y pégalo aquí:`;
-    res.innerHTML = `<div class="link"><input id="link" placeholder="https://www.youtube.com/watch?v=…" aria-label="Enlace del video"><button class="go" id="use">Usar</button></div>`;
-    $("use").onclick = () => {
-      const m = $("link").value.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/);
-      if (m) activar({ id: m[1], titulo: text }); else $("msg").textContent = "Ese enlace de YouTube no es válido.";
+  const key = getKey();
+  if (!key) {
+    $("msg").textContent = "Para buscar karaoke aquí mismo, pega tu clave de YouTube (se guarda solo en este navegador):";
+    res.innerHTML = `<div class="link"><input id="keyin" type="password" placeholder="Clave de la API de YouTube" aria-label="Clave de la API de YouTube" autocomplete="off"><button class="go" id="savekey">Guardar y buscar</button></div>`;
+    $("savekey").onclick = () => {
+      const k = $("keyin").value.trim();
+      if (!k) return;
+      try { localStorage.setItem(APIKEY, k); } catch {}
+      choose(text);
     };
     return;
   }
-  $("msg").textContent = "Buscando…";
+  $("msg").textContent = "Buscando karaoke…";
   try {
-    const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&videoEmbeddable=true&q=${encodeURIComponent(term)}&key=${YT_API_KEY}`);
+    const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=25&videoEmbeddable=true&videoSyndicated=true&videoCategoryId=10&relevanceLanguage=en&q=${encodeURIComponent(term)}&key=${encodeURIComponent(key)}`);
     const d = await r.json();
-    $("msg").textContent = d.items?.length ? "Escoge el video que quieres trabajar:" : "Sin resultados.";
-    (d.items || []).forEach(v => {
+    if (d.error) {
+      $("msg").textContent = "La clave no funcionó: " + (d.error.message || "error de YouTube");
+      if (d.error.code === 400 || d.error.code === 403) { try { localStorage.removeItem(APIKEY); } catch {} }
+      return;
+    }
+    // Solo karaoke: el título o el canal debe indicarlo.
+    const ok = /karaoke|sing[ -]?along|instrumental|backing track|lyrics/i;
+    const lista = (d.items || []).filter(v => ok.test(v.snippet.title + " " + v.snippet.channelTitle)).slice(0, 10);
+    $("msg").textContent = lista.length ? "Escoge el karaoke que quieres cantar:" : "No encontré karaoke para esa búsqueda. Prueba otra canción o artista.";
+    lista.forEach(v => {
       const row = document.createElement("div"); row.className = "row";
       row.innerHTML = `<img src="${esc(v.snippet.thumbnails.medium.url)}" alt=""><div class="t"><b>${esc(v.snippet.title)}</b><span>${esc(v.snippet.channelTitle)}</span></div>`;
       const b = document.createElement("button"); b.className = "go"; b.textContent = "Cantar este";
@@ -186,8 +197,7 @@ function pintar() {
   const v = rd(KEY, null), notas = rd(NKEY, {});
   $("activo").innerHTML = v
     ? `<iframe src="https://www.youtube.com/embed/${esc(v.id)}" allowfullscreen title="Video activo"></iframe>
-       <p style="margin:10px 0 0"><b>${esc(v.titulo)}</b></p>
-       <div class="actions"><a class="go" href="${esc(v.url)}" target="_blank" rel="noopener">Abrir en YouTube</a></div>`
+       <p style="margin:10px 0 0"><b>${esc(v.titulo)}</b></p>`
     : `<div class="empty"><div class="big">🎶</div>Busca arriba una canción<br>y empieza a cantar.</div>`;
   $("notas").value = v ? (notas[v.id] || "") : "";
   $("notas").disabled = !v;
