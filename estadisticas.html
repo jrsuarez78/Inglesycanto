@@ -36,6 +36,8 @@
   .fila.cab { border-top:0; color:var(--mut); font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; }
   .fila .t { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .tabla { overflow-x:auto; } .tabla .fila { min-width:640px; }
+  .fila2 { display:grid; grid-template-columns:minmax(0,1fr) 64px 76px 56px; gap:10px; align-items:center; padding:9px 4px; border-top:1px solid var(--bd); font-size:.92rem; min-width:420px; }
+  .fila2.cab { border-top:0; color:var(--mut); font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; }
   .chips { display:flex; flex-wrap:wrap; gap:8px; }
   .chip { border:1px solid var(--bd); border-radius:999px; padding:3px 12px; font-size:.9rem; }
   .chip b { color:var(--bad); }
@@ -58,8 +60,8 @@
 <main class="wrap">
   <div class="card vacio" id="vacio" hidden>
     <div style="font-size:2.4rem">📈</div>
-    <p>Aún no hay estadísticas. Practica algunas frases y vuelve aquí para ver tu progreso.</p>
-    <a class="go" href="practica.html">Ir a practicar frases</a>
+    <p>Aún no hay estadísticas. Practica frases o haz el ejercicio «¿Qué entiendes?» y vuelve aquí para ver tu progreso.</p>
+    <a class="go" href="practica.html">Ir a practicar frases</a> <a class="go" href="comprension.html">¿Qué entiendes?</a>
   </div>
 
   <div id="todo" hidden>
@@ -86,6 +88,15 @@
       <div class="chips" id="pal"></div>
     </section>
 
+    <section class="card" id="compCard" hidden>
+      <h2>🧠 Comprensión de la letra</h2>
+      <p class="mut" style="margin:0">Qué tan bien entendías cada frase antes de ver la traducción (ejercicio «¿Qué entiendes?»).</p>
+      <div class="kpis" id="compKpis" style="margin-top:12px"></div>
+      <div class="bars" id="compBars" aria-label="Promedio de comprensión de cada vez que hiciste el ejercicio"></div>
+      <div class="tabla" id="compTabla"></div>
+      <div class="row" style="margin-top:12px"><a class="go" href="comprension.html">Hacer el ejercicio otra vez</a></div>
+    </section>
+
     <section class="card" id="cantCard" hidden>
       <h2>Cantando la canción completa</h2>
       <div class="bars" id="cant" aria-label="Calificación de cada vez que cantaste la canción"></div>
@@ -105,7 +116,11 @@ const color = p => p >= META ? "var(--ok)" : p >= 50 ? "var(--mid)" : "var(--bad
 const fch = t => new Date(t).toLocaleDateString("es", { day: "numeric", month: "short" });
 
 const FR = rd(FKEY, {}), activo = rd(KEY, null);
-const ids = Object.keys(FR).filter(id => Object.values(FR[id]).some(e => e.intentos && e.intentos.length));
+const CK = rd("videoscurso.comprension", {});
+const ids = [...new Set([
+  ...Object.keys(FR).filter(id => Object.values(FR[id]).some(e => e.intentos && e.intentos.length)),
+  ...Object.keys(CK).filter(id => (CK[id] || []).length)
+])];
 const titulos = {};
 rd(SKEY, []).forEach(s => { titulos[s.videoId] = s.titulo; });
 rd(HKEY, []).forEach(v => { titulos[v.id] = v.titulo; });
@@ -142,6 +157,8 @@ function spark(h) {
 
 function pintar(id) {
   const { entradas, todos } = datos(id);
+  const hay = entradas.length > 0;
+  if (hay) {
   const primeros = entradas.map(e => e.h[0]), ultimos = entradas.map(e => e.h[e.h.length - 1]);
   const dom = ultimos.filter(p => p >= META).length;
   const conMejora = entradas.filter(e => e.h.length > 1).map(e => e.h[e.h.length - 1] - e.h[0]);
@@ -166,11 +183,31 @@ function pintar(id) {
   const cuenta = {}; entradas.forEach(e => e.mal.forEach(w => { cuenta[w] = (cuenta[w] || 0) + 1; }));
   const top = Object.entries(cuenta).filter(([w]) => w.length > 2).sort((a, b) => b[1] - a[1]).slice(0, 12);
   $("pal").innerHTML = top.length ? top.map(([w, n]) => `<span class="chip">${esc(w)} <b>×${n}</b></span>`).join("") : `<span class="mut">Todavía no hay palabras repetidas con errores. ¡Bien!</span>`;
+  } else {
+    $("kpis").innerHTML = `<span class="mut">Aún no has practicado frases de esta canción. <a href="practica.html" style="color:var(--p3)">Ir a practicar</a>.</span>`;
+    $("lectura").textContent = ""; $("chart").innerHTML = ""; $("tabla").innerHTML = ""; $("pal").innerHTML = `<span class="mut">—</span>`;
+  }
 
   const ses = rd(SKEY, []).filter(s => s.videoId === id).sort((a, b) => a.id - b.id);
   $("cantCard").hidden = ses.length === 0;
   $("cant").innerHTML = ses.slice(-10).map(s => `<div class="bar" style="height:${Math.max(s.score, 4)}%" title="${new Date(s.fecha).toLocaleString("es")}"><span>${s.score}</span></div>`).join("");
   $("cantTxt").textContent = ses.length > 1 ? `Primera vez: ${ses[0].score}% · Última vez: ${ses[ses.length - 1].score}% · Mejor: ${Math.max(...ses.map(s => s.score))}%` : ses.length ? `Una vez: ${ses[0].score}%. Vuelve a cantarla para comparar.` : "";
+
+  // ---- Comprensión de la letra (ejercicio ¿Qué entiendes?) ----
+  const runs = (CK[id] || []).slice().sort((a, b) => a.id - b.id);
+  $("compCard").hidden = runs.length === 0;
+  if (runs.length) {
+    const cc = p => p >= 70 ? "var(--ok)" : p >= 40 ? "var(--mid)" : "var(--bad)";
+    const kk = (v, t, c) => `<div class="kpi"><b style="color:${c || "var(--fg)"}">${v}</b><span>${t}</span></div>`;
+    const ult = runs[runs.length - 1], prim = runs[0];
+    $("compKpis").innerHTML = kk(ult.promedio + "%", "última vez", cc(ult.promedio)) + kk(prim.promedio + "%", "primera vez") + kk(Math.max(...runs.map(r => r.promedio)) + "%", "mejor resultado") + kk(runs.length, "veces que lo hiciste");
+    $("compBars").innerHTML = runs.slice(-10).map(r => `<div class="bar" style="height:${Math.max(r.promedio, 4)}%" title="${new Date(r.fecha).toLocaleString("es")}"><span>${r.promedio}</span></div>`).join("");
+    const por = {};
+    runs.forEach(r => r.items.forEach(x => { const e = por[x.k] = por[x.k] || { texto: x.texto, es: x.es, p: [] }; e.p.push(x.pct); }));
+    const lista = Object.values(por).map(e => ({ ...e, u: e.p[e.p.length - 1], m: Math.round(mean(e.p)) })).sort((a, b) => a.u - b.u);
+    $("compTabla").innerHTML = `<div class="fila2 cab"><span>Frase</span><span>Última</span><span>Promedio</span><span>Veces</span></div>` + lista.map(e => `
+      <div class="fila2"><span class="t" title="${esc(e.texto)} — ${esc(e.es)}"><b>${esc(e.texto)}</b><small style="display:block;color:var(--mut)">${esc(e.es)}</small></span><b style="color:${cc(e.u)}">${e.u}%</b><span>${e.m}%</span><span>${e.p.length}</span></div>`).join("");
+  }
 }
 
 if (!ids.length) $("vacio").hidden = false;

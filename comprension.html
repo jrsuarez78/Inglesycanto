@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>¿Qué entiendes?</title>
+<style>
+  :root {
+    --bg:#fff8f0; --card:#ffffff; --fg:#2b2140; --mut:#7a6f8c; --bd:#eadfd2;
+    --p1:#ff6b6b; --p2:#ffa94d; --p3:#845ef7; --hov:#f6efff; --sh:0 6px 20px rgba(80,40,120,.10);
+    --ok:#2f9e44; --bad:#e03131; --okbg:#e6fcf5; --badbg:#ffe3e3; --mid:#e67700;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#17121f; --card:#221b30; --fg:#f4eefc; --mut:#a99cc0; --bd:#352b49; --hov:#2d2342; --sh:0 6px 20px rgba(0,0,0,.4); --ok:#69db7c; --bad:#ff8787; --okbg:#1f3a33; --badbg:#4a2230; --mid:#ffa94d; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 "Segoe UI",system-ui,sans-serif; }
+  .wrap { max-width:860px; margin:0 auto; padding:0 16px 40px; }
+  header.hero { padding:24px 16px 40px; color:#fff; background:linear-gradient(135deg,var(--p3),var(--p1) 60%,var(--p2)); border-radius:0 0 32px 32px; text-align:center; }
+  .hero h1 { margin:8px 0 4px; font-size:clamp(1.4rem,4.5vw,2.1rem); }
+  .hero p { margin:0; opacity:.92; }
+  .nav { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .back { color:#fff; text-decoration:none; background:rgba(255,255,255,.2); padding:6px 14px; border-radius:999px; font-size:.9rem; }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:20px; padding:18px; box-shadow:var(--sh); margin-top:18px; }
+  .card h2 { margin:0 0 10px; font-size:1.1rem; }
+  .mut { color:var(--mut); font-size:.9rem; }
+  .prog { height:10px; border-radius:99px; background:var(--hov); overflow:hidden; margin:8px 0 4px; }
+  .prog i { display:block; height:100%; background:linear-gradient(90deg,var(--p3),var(--p1)); }
+  .frase { font-size:clamp(1.3rem,3.6vw,1.9rem); font-weight:700; line-height:1.3; margin:8px 0 12px; overflow-wrap:anywhere; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+  button.go, a.go { border:0; background:linear-gradient(135deg,var(--p3),var(--p1)); color:#fff; padding:10px 18px; border-radius:999px; cursor:pointer; font-size:.95rem; text-decoration:none; display:inline-block; }
+  button.go.sec, a.go.sec { background:var(--card); color:var(--fg); border:1px solid var(--bd); }
+  button.go.rec { background:var(--bad); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  textarea { width:100%; min-height:90px; padding:12px; border:1px solid var(--bd); border-radius:14px; background:var(--bg); color:var(--fg); font:inherit; }
+  .marks span { display:inline-block; padding:1px 7px; margin:2px 3px 2px 0; border-radius:8px; font-weight:600; }
+  .marks .ok { background:var(--okbg); color:var(--ok); } .marks .bad { background:var(--badbg); color:var(--bad); } .marks .n { color:var(--mut); font-weight:400; }
+  .correcta { font-size:1.15rem; margin:6px 0; }
+  .nota { font-size:.85rem; color:var(--mut); margin-top:4px; }
+  .big { font-size:2.6rem; font-weight:700; line-height:1; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-top:12px; }
+  .kpi { border:1px solid var(--bd); border-radius:16px; padding:10px 14px; } .kpi b { display:block; font-size:1.7rem; line-height:1.1; } .kpi span { color:var(--mut); font-size:.82rem; }
+  .fila { display:grid; grid-template-columns:minmax(0,1fr) 60px; gap:10px; padding:10px 4px; border-top:1px solid var(--bd); }
+  .fila small { display:block; color:var(--mut); }
+  .vacio { text-align:center; padding:40px 8px; }
+  a:focus-visible, button:focus-visible, textarea:focus-visible { outline:3px solid var(--p3); outline-offset:2px; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="nav"><a class="back" href="./">← Dashboard</a><a class="back" href="traduccion.html">🌐 Traducción</a><a class="back" href="practica.html">🎯 Practicar</a><a class="back" href="estadisticas.html">📊 Estadísticas</a></div>
+  <h1>🧠 ¿Qué entiendes?</h1>
+  <p>Escucha cada frase, di qué crees que significa y luego compara con la traducción.</p>
+</header>
+
+<main class="wrap">
+  <div class="card vacio" id="sin" hidden>
+    <div style="font-size:2.4rem">🎶</div>
+    <p id="sinmsg">Primero escoge una canción en el dashboard.</p>
+    <a class="go" id="sinlink" href="./">Ir al dashboard</a>
+  </div>
+
+  <div id="quiz" hidden>
+    <section class="card">
+      <div class="mut" id="cont"></div>
+      <div class="prog" aria-hidden="true"><i id="barra" style="width:0"></i></div>
+      <div class="frase" id="frase"></div>
+      <div class="row">
+        <button class="go sec" id="oir">🔊 Escuchar</button>
+        <button class="go sec" id="oirl">🐢 Lento</button>
+      </div>
+
+      <div id="paso1">
+        <p style="margin:16px 0 6px"><b>¿Qué entiendes de esta frase?</b> <span class="mut">Escríbelo o díctalo en español, con tus palabras.</span></p>
+        <textarea id="resp" placeholder="Creo que dice…" aria-label="Lo que entiendes de la frase"></textarea>
+        <div class="row">
+          <button class="go" id="revisar">✔ Revisar mi respuesta</button>
+          <button class="go sec" id="dictar">🎤 Dictar en español</button>
+          <button class="go sec" id="nose">No sé, mostrar traducción</button>
+        </div>
+      </div>
+
+      <div id="paso2" hidden>
+        <p class="mut" style="margin:16px 0 0">Tú entendiste:</p>
+        <p id="tuResp" style="margin:2px 0 10px;font-style:italic"></p>
+        <p class="mut" style="margin:0">La traducción correcta:</p>
+        <div class="correcta" id="correcta"></div>
+        <div class="marks" id="marks"></div>
+        <div class="nota" id="nota"></div>
+        <div style="display:flex;gap:14px;align-items:center;margin-top:14px;flex-wrap:wrap"><div class="big" id="pct"></div><div id="veredicto"></div></div>
+        <p class="mut" style="margin:12px 0 4px">La calificación automática compara palabras clave; si dijiste lo mismo con otras palabras, ajústala:</p>
+        <div class="row" style="margin-top:0">
+          <button class="go sec" data-aj="100">✅ Lo entendí (100%)</button>
+          <button class="go sec" data-aj="70">🟡 Entendí la idea (70%)</button>
+          <button class="go sec" data-aj="20">❌ No lo entendí (20%)</button>
+        </div>
+        <div class="row"><button class="go" id="sig">Siguiente frase →</button></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="fin" hidden>
+    <section class="card">
+      <h2>🏁 Resultado de la canción</h2>
+      <div class="kpis" id="kpis"></div>
+      <p class="mut" id="lectura" style="margin:12px 0 0"></p>
+      <div class="row">
+        <button class="go" id="rep">🔁 Repetir las que no entendí</button>
+        <button class="go sec" id="todas">Empezar de nuevo (todas)</button>
+        <a class="go sec" href="estadisticas.html">📊 Ver estadísticas</a>
+      </div>
+    </section>
+    <section class="card"><h2>Frase por frase</h2><div id="detalle"></div></section>
+  </div>
+</main>
+
+<script>
+const KEY = "videoscurso.activo", LKEY = "videoscurso.letras", TKEY = "videoscurso.trad", CKEY = "videoscurso.comprension";
+const $ = id => document.getElementById(id);
+const rd = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const color = p => p >= 70 ? "var(--ok)" : p >= 40 ? "var(--mid)" : "var(--bad)";
+const normEn = t => (String(t).toLowerCase().replace(/[’‘]/g, "'").match(/[a-z']+/g) || []).join(" ");
+
+// ---- Calificación: compara las palabras clave de tu respuesta con la traducción correcta ----
+const STOP = new Set("a al algo ante con contra cual cuando de del desde donde el ella ellos en entre era es esa ese eso esta este esto fue ha han hay la las le les lo los me mi mis muy no nos o para pero por que se si sin sobre su sus te ti tu tus un una uno unos y ya yo soy eres somos son estoy esta estan ser estar como mas".split(" "));
+const sinAc = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+const SUF = ["amente", "mente", "aciones", "acion", "iendo", "ando", "ados", "adas", "idos", "idas", "ado", "ada", "ido", "ida", "ar", "er", "ir", "es", "s"];
+const stem = w => { for (const s of SUF) if (w.length - s.length >= 4 && w.endsWith(s)) return w.slice(0, -s.length); return w; };
+const tokens = t => (sinAc(String(t).toLowerCase()).match(/[a-zñ]+/g) || []).filter(w => w.length > 1 && !STOP.has(w)).map(stem);
+const cerca = (a, b) => { if (a === b) return true; let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++; return i >= 4 && i >= 0.7 * Math.min(a.length, b.length); };
+function calificar(resp, ref) {
+  const R = tokens(ref), U = tokens(resp);
+  if (!U.length || !R.length) return { pct: 0, marks: marcar(ref, U) };
+  const rec = R.filter(r => U.some(u => cerca(r, u))).length / R.length;
+  const pre = U.filter(u => R.some(r => cerca(r, u))).length / U.length;
+  return { pct: Math.round(100 * (0.75 * rec + 0.25 * pre)), marks: marcar(ref, U) };
+}
+function marcar(ref, U) {
+  return String(ref).split(/\s+/).filter(Boolean).map(w => { const t = tokens(w)[0]; return [w, t === undefined ? 2 : U.some(u => cerca(t, u)) ? 1 : 0]; });
+}
+
+// ---- Frases con traducción ----
+const V = rd(KEY, null);
+let todas = [], cola = [], i = 0, resultados = [], actual = null;
+if (!V) $("sin").hidden = false;
+else {
+  const L = (rd(LKEY, {})[V.id] || "").replace(/\r/g, "").split("\n").map(s => s.trim()).filter(Boolean);
+  const T = (rd(TKEY, {})[V.id] || {}), tr = T.lineas || [], notas = T.notas || [], vistas = new Set();
+  L.forEach((s, n) => { const k = normEn(s); if (k && tr[n] && !vistas.has(k)) { vistas.add(k); todas.push({ texto: s, k, es: tr[n], nota: notas[n] || "" }); } });
+  if (!todas.length) {
+    $("sin").hidden = false; $("sinlink").href = "traduccion.html";
+    $("sinmsg").textContent = L.length ? "Esta canción aún no tiene traducción guardada. Créala primero en la página de traducción." : "Esta canción no tiene letra cargada. Ve a la página de traducción y pégala.";
+    $("sinlink").textContent = "Ir a la traducción";
+  }
+}
+
+// ---- Voz ----
+let sonando = null;
+function parar() { try { speechSynthesis.cancel(); } catch {} if (sonando) sonando.btn.textContent = sonando.txt; sonando = null; }
+function oir(rate, btn) {
+  if (sonando && sonando.btn === btn) { parar(); return; }
+  parar();
+  try {
+    const u = new SpeechSynthesisUtterance(actual.texto); u.lang = "en-US"; u.rate = rate;
+    const v = speechSynthesis.getVoices().find(x => /^en-US/i.test(x.lang)); if (v) u.voice = v;
+    sonando = { btn, txt: btn.textContent }; btn.textContent = "⏹ Detener";
+    u.onend = u.onerror = () => { if (sonando && sonando.btn === btn) parar(); };
+    speechSynthesis.speak(u);
+  } catch {}
+}
+$("oir").onclick = () => oir(0.9, $("oir")); $("oirl").onclick = () => oir(0.55, $("oirl"));
+
+let dictando = null;
+const LANGS = { neutro: "es-US", mexico: "es-MX", colombia: "es-CO", argentina: "es-AR", chile: "es-CL", espana: "es-ES" };
+$("dictar").onclick = () => {
+  if (dictando) { dictando.stop(); return; }
+  if (!SR) { alert("Tu navegador no permite reconocimiento de voz. Usa Chrome o Edge."); return; }
+  parar();
+  let v = "neutro"; try { v = localStorage.getItem("videoscurso.variante") || "neutro"; } catch {}
+  const r = new SR(); r.lang = LANGS[v] || "es-US"; r.interimResults = true; r.continuous = false;
+  const base = $("resp").value ? $("resp").value.trim() + " " : "";
+  r.onresult = e => { let t = ""; for (let k = 0; k < e.results.length; k++) t += e.results[k][0].transcript; $("resp").value = base + t; };
+  r.onend = () => { dictando = null; $("dictar").textContent = "🎤 Dictar en español"; $("dictar").classList.remove("rec"); };
+  dictando = r; $("dictar").textContent = "⏹ Terminar"; $("dictar").classList.add("rec");
+  try { r.start(); } catch { dictando = null; $("dictar").textContent = "🎤 Dictar en español"; $("dictar").classList.remove("rec"); }
+};
+
+// ---- Flujo ----
+function empezar(frases) {
+  cola = frases.slice(); i = 0; resultados = [];
+  $("fin").hidden = true; $("quiz").hidden = false; mostrar();
+}
+function mostrar() {
+  parar(); actual = cola[i];
+  $("cont").textContent = `Frase ${i + 1} de ${cola.length}`; $("barra").style.width = Math.round(100 * i / cola.length) + "%";
+  $("frase").textContent = actual.texto; $("resp").value = "";
+  $("paso1").hidden = false; $("paso2").hidden = true; $("resp").focus();
+}
+function revelar(resp) {
+  parar(); if (dictando) dictando.stop();
+  const c = calificar(resp, actual.es);
+  actual._r = { k: actual.k, texto: actual.texto, es: actual.es, resp: resp.slice(0, 300), auto: c.pct, pct: c.pct };
+  $("paso1").hidden = true; $("paso2").hidden = false;
+  $("tuResp").textContent = resp ? "«" + resp + "»" : "(no escribiste nada)";
+  $("correcta").textContent = actual.es;
+  $("marks").innerHTML = resp ? c.marks.map(([w, s]) => `<span class="${s === 1 ? "ok" : s === 0 ? "bad" : "n"}">${esc(w)}</span>`).join("") : "";
+  $("nota").textContent = actual.nota ? "💡 " + actual.nota : "";
+  pintarPct(); $("sig").textContent = i === cola.length - 1 ? "Ver resultado final 🏁" : "Siguiente frase →"; $("sig").focus();
+}
+function pintarPct() {
+  const p = actual._r.pct;
+  $("pct").textContent = p + "%"; $("pct").style.color = color(p);
+  $("veredicto").textContent = p >= 70 ? "¡Entendiste muy bien esta frase!" : p >= 40 ? "Entendiste parte de la idea. Mira las palabras en rojo." : "Esta frase se te escapó. Léela otra vez y escúchala de nuevo.";
+}
+$("revisar").onclick = () => revelar($("resp").value.trim());
+$("nose").onclick = () => revelar("");
+$("resp").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) revelar($("resp").value.trim()); });
+document.querySelectorAll("[data-aj]").forEach(b => { b.onclick = () => { actual._r.pct = +b.dataset.aj; pintarPct(); }; });
+$("sig").onclick = () => { resultados.push(actual._r); if (i < cola.length - 1) { i++; mostrar(); } else final(); };
+
+function final() {
+  parar(); $("quiz").hidden = true; $("fin").hidden = false;
+  const prom = Math.round(resultados.reduce((a, r) => a + r.pct, 0) / resultados.length);
+  const bien = resultados.filter(r => r.pct >= 70).length, parcial = resultados.filter(r => r.pct >= 40 && r.pct < 70).length, no = resultados.length - bien - parcial;
+  const todasLasFrases = cola.length === todas.length;
+  const runs = rd(CKEY, {}); const lista = runs[V.id] = runs[V.id] || [];
+  lista.push({ id: Date.now(), fecha: new Date().toISOString(), promedio: prom, completa: todasLasFrases, items: resultados });
+  runs[V.id] = lista.slice(-15); wr(CKEY, runs);
+  const k = (v, t, c) => `<div class="kpi"><b style="color:${c || "var(--fg)"}">${v}</b><span>${t}</span></div>`;
+  $("kpis").innerHTML = k(prom + "%", "comprensión de la canción", color(prom)) + k(bien, "frases entendidas (≥70%)", "var(--ok)") + k(parcial, "entendidas a medias", "var(--mid)") + k(no, "no entendidas", "var(--bad)");
+  const prev = lista.length > 1 ? lista[lista.length - 2] : null;
+  $("lectura").textContent = prev ? (prom - prev.promedio >= 3 ? `Mejoraste ${prom - prev.promedio} puntos frente a tu intento anterior (${prev.promedio}%).` : prom - prev.promedio <= -3 ? `Bajaste ${prev.promedio - prom} puntos frente a tu intento anterior (${prev.promedio}%).` : `Quedaste igual que tu intento anterior (${prev.promedio}%).`) : "Es tu primer intento con esta canción. Vuelve a hacerlo para ver si mejoras.";
+  $("detalle").innerHTML = resultados.slice().sort((a, b) => a.pct - b.pct).map(r => `<div class="fila"><div><b>${esc(r.texto)}</b><small>Correcta: ${esc(r.es)}</small><small>Tú: ${r.resp ? esc(r.resp) : "—"}</small></div><b style="color:${color(r.pct)};text-align:right">${r.pct}%</b></div>`).join("");
+  $("rep").disabled = no + parcial === 0;
+}
+$("rep").onclick = () => { const malas = new Set(resultados.filter(r => r.pct < 70).map(r => r.k)); empezar(todas.filter(f => malas.has(f.k))); };
+$("todas").onclick = () => empezar(todas);
+
+if (V && todas.length) empezar(todas);
+</script>
+</body>
+</html>
