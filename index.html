@@ -51,6 +51,21 @@
   .stat b { display:block; font-size:1.8rem; color:var(--p3); }
   .stat span { color:var(--mut); font-size:.85rem; }
   .link { display:flex; gap:8px; margin-top:10px; }
+  .score { font-size:3rem; font-weight:700; line-height:1; }
+  .res2 { display:flex; gap:16px; align-items:center; margin:14px 0 4px; }
+  #canto h3 { margin:18px 0 6px; font-size:1rem; }
+  #canto ul { margin:0; padding-left:20px; }
+  #canto li { margin:4px 0; }
+  .words { display:flex; flex-wrap:wrap; gap:8px; }
+  .words .chip b { color:var(--p3); }
+  .prac { margin-top:14px; padding:14px; border:1px dashed var(--p3); border-radius:14px; text-align:center; }
+  .prac .w { font-size:2rem; font-weight:700; }
+  .prac .actions { justify-content:center; }
+  .bars { display:flex; align-items:flex-end; gap:6px; height:90px; margin:8px 0; }
+  .bar { flex:1; max-width:44px; background:linear-gradient(180deg,var(--p3),var(--p1)); border-radius:6px 6px 0 0; position:relative; min-height:14px; }
+  .bar span { position:absolute; top:-18px; left:0; right:0; text-align:center; font-size:.72rem; color:var(--mut); }
+  .go.sec { background:var(--card); color:var(--fg); border:1px solid var(--bd); }
+  .go:disabled { opacity:.5; cursor:not-allowed; }
   .link input { flex:1; padding:10px 14px; border:1px solid var(--bd); border-radius:999px; background:var(--bg); color:var(--fg); }
 </style>
 </head>
@@ -84,6 +99,21 @@
       </div>
     </section>
   </div>
+
+  <section class="card" style="margin-top:20px" id="canto">
+    <h2>🎙️ Mi canto</h2>
+    <p class="mut" style="margin:0 0 10px">Usa audífonos: así el micrófono no capta la música del karaoke. Tu voz se graba y se analiza en este navegador (Chrome o Edge).</p>
+    <label class="mut" for="letra">Letra de la canción (pégala para analizar palabra por palabra)</label>
+    <textarea id="letra" placeholder="Pega aquí la letra en inglés…"></textarea>
+    <div class="actions">
+      <button class="go" id="bCantar">🎤 Empezar a cantar</button>
+      <span class="mut" id="timer"></span>
+    </div>
+    <p class="mut" id="vivo" aria-live="polite"></p>
+    <div id="result"></div>
+    <div id="prac"></div>
+    <div id="sesiones"></div>
+  </section>
 
   <section class="card" style="margin-top:20px">
     <h2>🕘 Mis canciones</h2>
@@ -201,7 +231,7 @@ function activar(v) {
 function pintar() {
   const v = rd(KEY, null), notas = rd(NKEY, {});
   $("activo").innerHTML = v
-    ? `<iframe src="https://www.youtube.com/embed/${esc(v.id)}" allowfullscreen title="Video activo"></iframe>
+    ? `<iframe src="https://www.youtube.com/embed/${esc(v.id)}?enablejsapi=1&rel=0" allowfullscreen title="Video activo"></iframe>
        <p style="margin:10px 0 0"><b>${esc(v.titulo)}</b></p>`
     : `<div class="empty"><div class="big">🎶</div>Busca arriba una canción<br>y empieza a cantar.</div>`;
   $("notas").value = v ? (notas[v.id] || "") : "";
@@ -216,6 +246,7 @@ function pintar() {
     row.append(b); $("hist").append(row);
   });
   $("nCanc").textContent = h.length;
+  if (typeof pintarCanto === "function") pintarCanto();
   $("nPal").textContent = Object.values(notas).join("\n").split(/\n+/).filter(s => s.trim()).length;
 }
 $("notas").addEventListener("input", () => {
@@ -223,6 +254,224 @@ $("notas").addEventListener("input", () => {
   const n = rd(NKEY, {}); n[v.id] = $("notas").value; wr(NKEY, n);
   $("nPal").textContent = Object.values(n).join("\n").split(/\n+/).filter(s => s.trim()).length;
 });
+
+// ================= Mi canto: grabar, analizar, practicar =================
+// La nota es una ESTIMACIÓN: el reconocimiento de voz del navegador compara lo que "oyó" con la letra.
+const SKEY = "videoscurso.sesiones", PKEY = "videoscurso.practica", LKEY = "videoscurso.letras";
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, mr = null, mstream = null, chunks = [], heard = [], cantando = false, t0 = 0, tick = null, ultimoVideo = null;
+
+const fecha = iso => new Date(iso).toLocaleString("es", { dateStyle: "short", timeStyle: "short" });
+const norm = t => (String(t).toLowerCase().replace(/[’‘]/g, "'").match(/[a-z']+/g) || []).map(w => w.replace(/^'+|'+$/g, "")).filter(Boolean);
+const nivel = p => p >= 85 ? ["Excelente", "#2f9e44"] : p >= 70 ? ["Muy bien", "#5c940d"] : p >= 50 ? ["Regular", "#e67700"] : ["Necesita práctica", "#e03131"];
+const getSesiones = () => rd(SKEY, []);
+const deVideo = id => getSesiones().filter(s => s.videoId === id).sort((a, b) => a.id - b.id);
+
+// ---- Audio guardado en IndexedDB (solo en este navegador) ----
+const idb = () => new Promise((ok, no) => { const r = indexedDB.open("videoscurso", 1); r.onupgradeneeded = () => r.result.createObjectStore("audios"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+async function audioPut(id, blob) { try { const db = await idb(); await new Promise((ok, no) => { const tx = db.transaction("audios", "readwrite"); tx.objectStore("audios").put(blob, id); tx.oncomplete = ok; tx.onerror = () => no(tx.error); }); return true; } catch { return false; } }
+async function audioGet(id) { try { const db = await idb(); return await new Promise((ok, no) => { const q = db.transaction("audios").objectStore("audios").get(id); q.onsuccess = () => ok(q.result || null); q.onerror = () => no(q.error); }); } catch { return null; } }
+
+function yt(func) { const fr = document.querySelector("#activo iframe"); try { fr && fr.contentWindow.postMessage(JSON.stringify({ event: "command", func, args: "" }), "https://www.youtube.com"); } catch {} }
+
+// ---- Análisis: alinea lo que oyó el reconocedor con la letra ----
+function analizar(letra, segs) {
+  const conf = c => (c > 0 ? c : 1);
+  const H = []; segs.forEach(s => norm(s.text).forEach(w => H.push({ w, c: conf(s.conf) })));
+  if (!H.length) return null;
+  const frases = segs.filter(s => conf(s.conf) < 0.7 && norm(s.text).length > 1).map(s => s.text.trim()).slice(0, 3);
+  const L = norm(letra);
+  if (!L.length) {
+    const media = H.reduce((a, h) => a + h.c, 0) / H.length;
+    return { modo: "claridad", score: Math.round(media * 100), cnt: H.length, ok: H.length, malas: [], frases };
+  }
+  const n = L.length, m = H.length;
+  const dp = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+  for (let i = 1; i <= n; i++) for (let j = 1; j <= m; j++)
+    dp[i][j] = L[i - 1] === H[j - 1].w ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+  const hit = new Array(n).fill(-1);
+  for (let i = n, j = m; i > 0 && j > 0;) {
+    if (L[i - 1] === H[j - 1].w) { hit[i - 1] = j - 1; i--; j--; }
+    else if (dp[i - 1][j] >= dp[i][j - 1]) i--; else j--;
+  }
+  const idx = hit.map((h, k) => (h >= 0 ? k : -1)).filter(k => k >= 0);
+  if (!idx.length) return { modo: "letra", score: 0, cnt: 0, ok: 0, malas: [], frases, sinCoincidencia: true };
+  const a = idx[0], b = idx[idx.length - 1]; // solo se evalúa la parte de la letra que cantaste
+  let suma = 0, ok = 0; const malas = {};
+  for (let k = a; k <= b; k++) {
+    if (hit[k] >= 0) { ok++; suma += 0.7 + 0.3 * H[hit[k]].c; } // 70% por coincidir con la letra + 30% por claridad
+    else malas[L[k]] = (malas[L[k]] || 0) + 1;
+  }
+  const cnt = b - a + 1;
+  const lista = Object.entries(malas).map(([w, c]) => ({ w, n: c })).sort((x, y) => y.n - x.n || y.w.length - x.w.length);
+  return { modo: "letra", score: Math.round(100 * suma / cnt), cnt, ok, malas: lista, frases };
+}
+
+function consejos(s) {
+  const ws = s.malas.map(m => m.w), t = [];
+  if (ws.some(w => /th/.test(w))) t.push("Sonido «th»: pon la punta de la lengua entre los dientes y sopla suave.");
+  if (ws.some(w => /(ed|s|t|d|k|p)$/.test(w))) t.push("Consonantes finales: no las comas. Marca la t, d, s y k al terminar cada palabra.");
+  if (ws.some(w => /r/.test(w))) t.push("La «r» inglesa: lengua curvada hacia atrás sin tocar el paladar y sin vibrarla.");
+  if (ws.some(w => /(ea|ee|ie|oo|ou|ow)/.test(w))) t.push("Vocales largas y cortas (ship / sheep): alarga las largas y acorta las cortas.");
+  if (s.score < 60) t.push("Canta más despacio al principio, aunque vayas detrás del karaoke, y acelera cuando te salga limpio.");
+  if (!t.length) t.push("Sigue repitiendo la canción: la fluidez mejora con cada intento.");
+  return t.slice(0, 4);
+}
+
+function diagnostico(s) {
+  const d = [];
+  if (s.sinCoincidencia) return ["No logré reconocer palabras de la letra. Revisa que la letra sea la de esta canción, canta más cerca del micrófono y usa audífonos."];
+  if (s.modo === "claridad") d.push("Sin letra solo puedo medir qué tan claro te entendió el reconocedor. Pega la letra para ver qué palabras fallan.");
+  else d.push(`Reconocí ${s.ok} de ${s.cnt} palabras de la parte que cantaste.`);
+  if (s.malas.length) d.push("No se entendieron bien: " + s.malas.slice(0, 10).map(m => m.w + (m.n > 1 ? ` (×${m.n})` : "")).join(", ") + ".");
+  if (s.frases.length) d.push("Frases con poca claridad: «" + s.frases.join("», «") + "».");
+  return d;
+}
+
+// ---- Comparación con intentos anteriores ----
+function comparacion(s) {
+  const previos = deVideo(s.videoId).filter(x => x.id < s.id);
+  if (!previos.length) return "Es tu primer intento con esta canción. Vuelve a cantarla para ver si mejoras.";
+  const ult = previos[previos.length - 1], mejor = Math.max(...previos.map(x => x.score));
+  const dif = s.score - ult.score;
+  let txt = dif >= 3 ? `✅ Mejoraste ${dif} puntos frente a tu intento anterior (${ult.score}%).`
+    : dif <= -3 ? `⚠️ Bajaste ${-dif} puntos frente a tu intento anterior (${ult.score}%). Aún no.`
+    : `➖ Quedaste igual que tu intento anterior (${ult.score}%).`;
+  txt += s.score > mejor ? " 🏆 Es tu mejor resultado." : ` Tu mejor: ${mejor}%.`;
+  const antes = new Set((ult.malas || []).map(m => m.w)), ahora = new Set(s.malas.map(m => m.w));
+  const ya = [...antes].filter(w => !ahora.has(w)).slice(0, 8), siguen = [...antes].filter(w => ahora.has(w)).slice(0, 8);
+  if (ya.length) txt += ` Ya pronuncias mejor: ${ya.join(", ")}.`;
+  if (siguen.length) txt += ` Siguen difíciles: ${siguen.join(", ")}.`;
+  return txt;
+}
+
+function mostrarResultado(s) {
+  const [lbl, col] = nivel(s.score);
+  const pal = s.malas.filter(m => m.w.length >= 3).slice(0, 8);
+  $("result").innerHTML = `
+    <div class="res2"><div class="score" style="color:${col}">${s.score}%</div>
+      <div><b>${lbl}</b><br><span class="mut">calidad de pronunciación estimada · ${fecha(s.fecha)}</span></div></div>
+    <h3>Diagnóstico</h3><ul>${diagnostico(s).map(x => `<li>${esc(x)}</li>`).join("")}</ul>
+    <h3>Qué mejorar</h3><ul>${consejos(s).map(x => `<li>${esc(x)}</li>`).join("")}</ul>
+    <h3>Comparación</h3><p style="margin:0">${esc(comparacion(s))}</p>
+    ${pal.length ? `<h3>Palabras para practicar</h3><div class="words">${pal.map(m => `<button class="chip" data-w="${esc(m.w)}">${esc(m.w)} <b>×${m.n}</b></button>`).join("")}</div>` : ""}`;
+}
+
+function pintarSesiones(v) {
+  const l = v ? deVideo(v.id) : [];
+  if (!l.length) { $("sesiones").innerHTML = ""; return; }
+  const bars = l.slice(-10).map(s => `<div class="bar" style="height:${Math.max(s.score, 4)}%" title="${fecha(s.fecha)}"><span>${s.score}</span></div>`).join("");
+  const rows = l.slice().reverse().map((s, i, arr) => {
+    const prev = arr[i + 1], d = prev ? s.score - prev.score : null;
+    const dTxt = d === null ? "" : (d > 0 ? `<span style="color:#2f9e44">▲ ${d}</span>` : d < 0 ? `<span style="color:#e03131">▼ ${-d}</span>` : "=");
+    return `<div class="row"><div class="t"><b>${s.score}% ${dTxt}</b><span>${fecha(s.fecha)}</span></div>
+      ${s.aud ? `<button class="go sec" data-aud="${s.id}">▶ Escuchar</button>` : ""}
+      <button class="go sec" data-ver="${s.id}">Ver análisis</button></div>`;
+  }).join("");
+  $("sesiones").innerHTML = `<h3>Tus intentos con esta canción</h3><div class="bars" aria-label="Evolución de tus intentos">${bars}</div>${rows}`;
+}
+
+// ---- Práctica palabra por palabra ----
+function abrirPractica(w) {
+  const h = rd(PKEY, {})[w] || [];
+  $("prac").innerHTML = `<div class="prac"><div class="w">${esc(w)}</div>
+    <p class="mut" style="margin:4px 0 10px">${h.length ? `Último intento: ${h[h.length - 1].pct}% · Mejor: ${Math.max(...h.map(x => x.pct))}%` : "Aún no has practicado esta palabra."}</p>
+    <div class="actions"><button class="go sec" id="oir">🔊 Escuchar modelo</button><button class="go" id="decir">🎤 Decir la palabra</button></div>
+    <p id="pres" style="margin:10px 0 0" aria-live="polite"></p></div>`;
+  $("prac").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  $("oir").onclick = () => { try { const u = new SpeechSynthesisUtterance(w); u.lang = "en-US"; u.rate = 0.8; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch {} };
+  $("decir").onclick = () => decirPalabra(w);
+}
+
+function decirPalabra(w) {
+  if (!SR) { $("pres").textContent = "Tu navegador no permite reconocimiento de voz. Usa Chrome o Edge."; return; }
+  const r = new SR(); r.lang = "en-US"; r.interimResults = false; r.maxAlternatives = 5;
+  $("pres").textContent = "Escuchando… di la palabra.";
+  r.onerror = e => { $("pres").textContent = e.error === "not-allowed" ? "Necesito permiso del micrófono." : "No te escuché. Intenta otra vez."; };
+  r.onresult = e => {
+    const alts = [...e.results[0]].map(a => ({ t: a.transcript, c: a.confidence > 0 ? a.confidence : 0.9 }));
+    const pos = alts.findIndex(a => norm(a.t).includes(w));
+    const pct = pos === 0 ? Math.round(alts[0].c * 100) : pos > 0 ? 40 : 0; // 40% = se parece, pero no es la primera opción
+    const todo = rd(PKEY, {}), h = todo[w] || [], prev = h[h.length - 1];
+    h.push({ t: Date.now(), pct }); todo[w] = h.slice(-20); wr(PKEY, todo);
+    let veredicto;
+    if (!prev) veredicto = "Primer intento con esta palabra. Repite para ver si mejoras.";
+    else if (pct - prev.pct >= 5) veredicto = `✅ Mejoraste ${pct - prev.pct} puntos (antes ${prev.pct}%).`;
+    else if (pct - prev.pct <= -5) veredicto = `⚠️ Aún no: bajaste ${prev.pct - pct} puntos (antes ${prev.pct}%).`;
+    else veredicto = `➖ Igual que antes (${prev.pct}%).`;
+    if (pct >= 85) veredicto += " 🎉 Palabra dominada.";
+    $("pres").innerHTML = `<b style="font-size:1.4rem">${pct}%</b> · oí: «${esc(alts[0].t)}»<br>${esc(veredicto)}`;
+  };
+  try { r.start(); } catch { $("pres").textContent = "Espera un momento e intenta otra vez."; }
+}
+
+// ---- Grabar y analizar ----
+function aviso(t) { $("vivo").textContent = t; }
+
+async function empezar() {
+  const v = rd(KEY, null); if (!v) return;
+  if (!SR) { aviso("Tu navegador no permite reconocimiento de voz. Usa Chrome o Edge en computadora."); return; }
+  try { mstream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+  catch { aviso("Necesito permiso para usar el micrófono."); return; }
+  chunks = []; heard = []; $("result").innerHTML = ""; $("prac").innerHTML = "";
+  mr = new MediaRecorder(mstream); mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); }; mr.start(1000);
+  rec = new SR(); rec.lang = "en-US"; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
+  rec.onresult = e => {
+    let interino = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i];
+      if (r.isFinal) heard.push({ text: r[0].transcript, conf: r[0].confidence }); else interino += r[0].transcript;
+    }
+    $("vivo").textContent = "🎧 " + heard.map(h => h.text).join(" ") + " " + interino;
+  };
+  rec.onend = () => { if (cantando) { try { rec.start(); } catch {} } };
+  rec.onerror = e => { if (e.error === "not-allowed") { aviso("Necesito permiso para usar el micrófono."); } };
+  cantando = true; rec.start(); t0 = Date.now(); yt("playVideo");
+  $("bCantar").textContent = "⏹ Terminar y analizar";
+  tick = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); $("timer").textContent = "● Grabando " + Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }, 500);
+  aviso("Cantando… tu voz se está grabando.");
+}
+
+async function terminar() {
+  cantando = false; clearInterval(tick); $("timer").textContent = ""; yt("pauseVideo");
+  $("bCantar").disabled = true; aviso("Analizando tu voz…");
+  const recFin = new Promise(r => { rec.onend = r; setTimeout(r, 2500); });
+  const mrFin = new Promise(r => { mr.onstop = r; });
+  try { rec.stop(); } catch {} try { mr.stop(); } catch {}
+  await Promise.all([recFin, mrFin]);
+  mstream && mstream.getTracks().forEach(t => t.stop());
+  const v = rd(KEY, null), letra = $("letra").value;
+  const res = analizar(letra, heard);
+  $("bCantar").disabled = false; $("bCantar").textContent = "🎤 Empezar a cantar";
+  if (!res) { aviso("No escuché tu voz. Acércate al micrófono, canta más fuerte y usa audífonos."); return; }
+  const s = { id: Date.now(), videoId: v.id, titulo: v.titulo, fecha: new Date().toISOString(), ...res };
+  s.aud = await audioPut(String(s.id), new Blob(chunks, { type: mr.mimeType || "audio/webm" }));
+  if (!res.sinCoincidencia) { const l = getSesiones(); l.push(s); wr(SKEY, l.slice(-60)); }
+  aviso(res.sinCoincidencia ? "" : "Listo. Tu grabación quedó guardada en este navegador.");
+  mostrarResultado(s); pintarSesiones(v);
+}
+
+$("bCantar").onclick = () => (cantando ? terminar() : empezar());
+$("letra").addEventListener("input", () => { const v = rd(KEY, null); if (!v) return; const l = rd(LKEY, {}); l[v.id] = $("letra").value; wr(LKEY, l); });
+$("result").addEventListener("click", e => { const b = e.target.closest("[data-w]"); if (b) abrirPractica(b.dataset.w); });
+$("sesiones").addEventListener("click", async e => {
+  const a = e.target.closest("[data-aud]"), ver = e.target.closest("[data-ver]");
+  if (a) { const b = await audioGet(a.dataset.aud); if (!b) { a.textContent = "Sin audio"; return; } new Audio(URL.createObjectURL(b)).play(); }
+  if (ver) { const s = getSesiones().find(x => String(x.id) === ver.dataset.ver); if (s) { mostrarResultado(s); $("result").scrollIntoView({ behavior: "smooth", block: "nearest" }); } }
+});
+
+function pintarCanto() {
+  const v = rd(KEY, null);
+  $("bCantar").disabled = !v || cantando;
+  if (!v) { $("letra").value = ""; $("letra").disabled = true; $("sesiones").innerHTML = ""; $("result").innerHTML = ""; return; }
+  $("letra").disabled = false;
+  if (v.id !== ultimoVideo) {
+    ultimoVideo = v.id; $("letra").value = rd(LKEY, {})[v.id] || ""; $("prac").innerHTML = ""; $("result").innerHTML = ""; $("vivo").textContent = "";
+    const l = deVideo(v.id); if (l.length) mostrarResultado(l[l.length - 1]);
+  }
+  pintarSesiones(v);
+}
+
 pintar();
 </script>
 </body>
