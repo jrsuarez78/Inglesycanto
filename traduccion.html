@@ -38,6 +38,8 @@
   .esp { height:14px; }
   .par.sonando { background:var(--hov); border-radius:12px; }
   .nota { font-size:.82rem; margin-top:4px; color:var(--mut); }
+  .txt { cursor:text; border-bottom:1px dotted var(--bd); }
+  input.edit { width:100%; padding:6px 10px; border:1px solid var(--p3); border-radius:10px; background:var(--bg); color:var(--fg); font:inherit; }
   .cab { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:0 4px 6px; font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); }
   @media (max-width:640px) { .par, .cab { grid-template-columns:1fr; gap:2px; } .cab span:last-child { display:none; } }
   .barra { height:8px; border-radius:99px; background:var(--hov); overflow:hidden; margin-top:10px; }
@@ -78,6 +80,7 @@
       <div class="row">
         <button class="go" id="auto">⚡ Traducir automáticamente</button>
         <button class="go sec" id="copiar">📋 Copiar para traducir con Claude</button>
+        <button class="go sec" id="copiar2">📋 Copiar para que Claude explique el significado</button>
         <a class="go sec" href="https://claude.ai/new" target="_blank" rel="noopener">Abrir claude.ai</a>
       </div>
       <div class="barra" id="barra" hidden><i id="prog"></i></div>
@@ -123,6 +126,30 @@ function lineas() {
 const ne = () => lineas().filter(Boolean);
 const trad = () => { const t = rd(TKEY, {})[V.id] || {}; return { lineas: t.lineas || [], notas: t.notas || [], fuente: t.fuente || "" }; };
 function guardarTrad(arr, fuente, notas) { const t = rd(TKEY, {}); t[V.id] = { lineas: arr, notas: notas || [], fuente }; wr(TKEY, t); }
+
+// ---- Glosario de contracciones, slang y modismos frecuentes en canciones (notas propias, no son parte de la letra) ----
+const GLOSARIO = [
+  [/\bgonna\b/i, "gonna = going to (voy a)"], [/\bwanna\b/i, "wanna = want to (quiero)"], [/\bgotta\b/i, "gotta = got to / have to (tengo que)"],
+  [/\b'?cause\b/i, "'cause = because (porque)"], [/\bain't\b/i, "ain't = am/is/are not, has not (negación informal muy común en canciones)"],
+  [/\by'all\b/i, "y'all = you all (ustedes, sur de EE. UU.)"], [/\blemme\b/i, "lemme = let me (déjame)"], [/\bgimme\b/i, "gimme = give me (dame)"],
+  [/\bkinda\b/i, "kinda = kind of (algo, un poco)"], [/\boutta\b/i, "outta = out of (fuera de)"], [/\btryna\b/i, "tryna = trying to (intentando)"],
+  [/\bc'mon\b|\bcome on\b/i, "come on = ¡vamos! / ¡ándale! / ¡dale!"], [/\bbaby\b|\bbabe\b/i, "baby / babe = cariño, mi amor (apelativo cariñoso; no significa 'bebé')"],
+  [/\bhoney\b/i, "honey = cariño (apelativo)"], [/\bdude\b/i, "dude = amigo, tipo (informal)"],
+  [/\bfall(ing)? for\b/i, "fall for = enamorarse de alguien (o caer en un engaño)"], [/\bfall(ing)? in love\b/i, "fall in love = enamorarse"],
+  [/\bhold(ing)? on\b/i, "hold on = aguanta, espera / no te rindas"], [/\blet(ting)? go\b/i, "let go = soltar, dejar ir"],
+  [/\bmove(d)? on\b/i, "move on = superarlo, seguir adelante"], [/\bgive(n)? up\b|\bgiving up\b/i, "give up = rendirse"],
+  [/\bbreak(ing)? up\b|\bbroke up\b/i, "break up = terminar una relación"], [/\bget(ting)? over\b|\bgot over\b/i, "get over = superar (a alguien o algo)"],
+  [/\bon my mind\b/i, "on my mind = en mi mente, pensando en ello"], [/\bout of my mind\b/i, "out of my mind = loco, fuera de mí"],
+  [/\bby my side\b/i, "by my side = a mi lado"], [/\bhang(ing)? out\b/i, "hang out = pasar el rato"], [/\bshow(ed)? up\b/i, "show up = aparecer, presentarse"],
+  [/\blook(ing)? up to\b/i, "look up to = admirar"], [/\bcry me a river\b/i, "cry me a river = llora lo que quieras (sarcasmo: no me da pena)"],
+  [/\bthe one\b/i, "the one = la persona indicada, la única"], [/\bmess(ed)? up\b/i, "mess up = arruinar, meter la pata"],
+  [/\bno matter\b/i, "no matter = no importa (lo que / cuánto)"], [/\bride or die\b/i, "ride or die = incondicional, hasta el final"],
+  [/\bbad blood\b/i, "bad blood = rencor, enemistad"], [/\bshake it off\b/i, "shake it off = sacudírselo, olvidarlo"],
+  [/\bin the dark\b/i, "in the dark = a oscuras / sin saber nada"], [/\bturn(ed)? out\b/i, "turn out = resultar, terminar siendo"],
+  [/\bhead over heels\b/i, "head over heels = perdidamente enamorado"], [/\bheartbreak\b|\bbroken heart\b|\bheart is broken\b/i, "heartbreak = desamor, el corazón roto"],
+  [/\bonce in a lifetime\b/i, "once in a lifetime = una vez en la vida, irrepetible"], [/\bcatch(ing)? feelings\b/i, "catch feelings = empezar a sentir algo romántico"]
+];
+const glosario = s => [...new Set(GLOSARIO.filter(([r]) => r.test(s)).map(([, n]) => n))].slice(0, 3);
 
 // ---- Escuchar (inglés y español). Un clic reproduce, otro clic detiene ----
 let hablando = null, corrida = 0;
@@ -183,16 +210,28 @@ function pintar() {
     const en = document.createElement("div"); en.className = "en";
     const b = document.createElement("button"); b.className = "go sec sm"; b.textContent = "🔊"; b.title = "Escuchar en inglés"; b.setAttribute("aria-label", "Escuchar en inglés: " + s); b.onclick = () => leer(s, b, "en");
     en.append(b, " ", s);
+    const idx = k - 1;
     const es = document.createElement("div"); es.className = "es" + (tr ? "" : " vacio");
     if (tr) {
       const b2 = document.createElement("button"); b2.className = "go sec sm"; b2.textContent = "🔊"; b2.title = "Escuchar en español"; b2.setAttribute("aria-label", "Escuchar en español: " + tr); b2.onclick = () => leer(tr, b2, "es");
-      es.append(b2, " ", tr);
-      if (nota) { const n = document.createElement("div"); n.className = "nota"; n.textContent = "💡 " + nota; es.append(n); }
-    } else es.textContent = "(sin traducir)";
+      es.append(b2, " ");
+    }
+    // Tocar el texto en español permite corregir la traducción a mano.
+    const txt = document.createElement("span"); txt.className = "txt"; txt.textContent = tr || "(sin traducir)"; txt.title = "Toca para corregir esta traducción"; txt.tabIndex = 0;
+    const editar = () => {
+      const inp = document.createElement("input"); inp.type = "text"; inp.value = tr; inp.className = "edit"; inp.setAttribute("aria-label", "Corregir traducción");
+      txt.replaceWith(inp); inp.focus();
+      inp.onblur = () => { const T2 = trad(), arr = T2.lineas.slice(); arr[idx] = inp.value.trim(); guardarTrad(arr, T2.fuente || "manual", T2.notas); pintar(); };
+      inp.onkeydown = e => { if (e.key === "Enter") inp.blur(); if (e.key === "Escape") { inp.onblur = null; pintar(); } };
+    };
+    txt.onclick = editar; txt.onkeydown = e => { if (e.key === "Enter") editar(); };
+    es.append(txt);
+    if (nota) { const n = document.createElement("div"); n.className = "nota"; n.textContent = "💡 " + nota; es.append(n); }
+    const g = glosario(s); if (g.length) { const n = document.createElement("div"); n.className = "nota"; n.textContent = "📖 " + g.join(" · "); es.append(n); }
     d.append(en, es); cont.append(d);
   });
   const f = trad().fuente;
-  $("fuente").textContent = hechas ? `Traducción ${f === "claude" ? "hecha con Claude" : "automática (puede tener errores)"} · ${hechas} de ${ne().length} frases.` : "Aún no hay traducción. Usa uno de los botones de arriba.";
+  $("fuente").textContent = hechas ? `Traducción ${f === "claude" ? "hecha con Claude" : f === "manual" ? "corregida a mano" : "automática: es un borrador literal, corrige las frases que suenen raras tocándolas"} · ${hechas} de ${ne().length} frases.` : "Aún no hay traducción. Usa uno de los botones de arriba.";
 }
 
 // ---- Traducción automática (MyMemory, gratuita y con límite diario) ----
@@ -229,6 +268,20 @@ LETRA (${L.length} líneas) de "${V.titulo}":
 ${L.map((s, i) => `${i + 1}. ${s}`).join("\n")}`;
   try { await navigator.clipboard.writeText(txt); $("msg").textContent = "✅ Copiado. Abre claude.ai, pega en un chat nuevo, copia la respuesta y pégala abajo en «Pegar aquí la traducción de Claude»."; }
   catch { $("pega").value = txt; $("pega").closest("details").open = true; $("pega").select(); $("msg").textContent = "Copia este texto (Ctrl+C) y pégalo en claude.ai. Luego borra este cuadro y pega la respuesta de Claude."; }
+};
+// Alternativa si Claude se niega a traducir la letra completa: explicar el significado (comentario, no traducción).
+$("copiar2").onclick = async () => {
+  const txt = `Actúa como un profesor de inglés estadounidense y traductor profesional. Para esta canción, en vez de traducir verso por verso, explícame en español:
+1) De qué trata la canción y qué siente quien canta.
+2) El significado natural de cada estrofa, con las palabras que usaría un hablante nativo de EE. UU. y cómo se diría en español natural.
+3) Los modismos, slang, contracciones y dobles sentidos, con lo que un estadounidense entiende al oírlos.
+4) Cinco frases útiles de la canción para aprender, con su uso en una conversación real.
+
+Canción: "${V.titulo}"
+Letra:
+${lineas().join("\n")}`;
+  try { await navigator.clipboard.writeText(txt); $("msg").textContent = "✅ Copiado. Pégalo en un chat nuevo de claude.ai."; }
+  catch { $("pega").value = txt; $("pega").closest("details").open = true; $("pega").select(); $("msg").textContent = "Copia este texto (Ctrl+C) y pégalo en claude.ai."; }
 };
 $("guardaTrad").onclick = () => {
   const n = ne().length, L = $("pega").value.replace(/\r/g, "").split("\n").map(s => s.trim()).filter(Boolean);
