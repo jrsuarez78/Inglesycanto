@@ -200,7 +200,6 @@
     ["Figure it out", "Resolverlo / Averiguarlo", "Don't worry, we'll figure it out."],
     ["Let's call it a night", "Terminemos la noche / Ya vámonos a dormir", "We're all tired. Let's call it a night."]
   ];
-  var NLOTES = Math.floor(BANCO.length / LOTE);
 
   // ---------- estado ----------
   function cargar() {
@@ -210,10 +209,12 @@
     e.aprendidas = e.aprendidas || {};   // {indiceGlobal: true}
     e.mejor = e.mejor || {};             // {indiceGlobal: mejor % al decirla}
     e.examenes = e.examenes || [];       // [{lote, nota, ok, fecha}]
-    e.desbloqueado = Math.max(0, Math.min(NLOTES - 1, e.desbloqueado || 0));
+    e.desbloqueado = Math.max(0, e.desbloqueado || 0);
+    e.extra = Array.isArray(e.extra) ? e.extra : [];   // frases nuevas generadas [[en,es,ej],...]
     return e;
   }
   var S = cargar();
+  S.extra.forEach(function (f) { BANCO.push(f); });
   function guardar() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (x) {} }
   var lote = S.desbloqueado;   // lote que se está viendo
 
@@ -283,12 +284,12 @@
   // ---------- pantalla principal ----------
   function pintar() {
     var n = aprendidasDe(lote);
-    $("titLote").textContent = "Lote " + (lote + 1) + " de " + NLOTES + (aprobado(lote) ? " ✅ aprobado" : "");
+    $("titLote").textContent = "Lote " + (lote + 1) + (aprobado(lote) ? " ✅ aprobado" : "");
     $("barra").style.width = (n / LOTE * 100) + "%";
     $("txtProg").textContent = n + " de " + LOTE + " frases aprendidas.";
 
     var tabs = $("tabs"); tabs.innerHTML = "";
-    for (var l = 0; l < NLOTES; l++) {
+    for (var l = 0; l <= S.desbloqueado; l++) {
       var b = document.createElement("button");
       b.className = "tab"; b.type = "button";
       b.textContent = "Lote " + (l + 1) + (aprobado(l) ? " ✅" : l > S.desbloqueado ? " 🔒" : "");
@@ -305,6 +306,13 @@
       : "Marca las 20 frases como aprendidas para abrir el examen.";
 
     var cont = $("lista"); cont.innerHTML = "";
+    if (lote * LOTE >= BANCO.length) {
+      $("btnExamen").disabled = true;
+      $("ayudaExamen").textContent = "Primero consigue las 20 frases nuevas de este lote.";
+      $("txtProg").textContent = "Este lote aún no tiene frases.";
+      panelGenerar(cont);
+      return;
+    }
     indices(lote).forEach(function (i, k) {
       var f = BANCO[i], d = document.createElement("article");
       d.className = "frase" + (S.aprendidas[i] ? " ok" : "");
@@ -337,6 +345,74 @@
       fila.appendChild(bo); fila.appendChild(be); fila.appendChild(bd); fila.appendChild(lab);
       cont.appendChild(d);
     });
+  }
+
+  // ---------- frases nuevas sin límite ----------
+  function pedido() {
+    var usadas = BANCO.map(function (f) { return limpia(f[0]); });
+    var tema = ["conversación diaria", "trabajo y oficina", "viajes y direcciones", "amistad y emociones", "compras y servicios", "modismos y jerga"][Math.floor(Math.random() * 6)];
+    return "Dame exactamente 20 frases en inglés que los nativos de Estados Unidos usan MUCHO en la vida real (tema sugerido: " + tema + "). " +
+      "Deben ser diferentes a estas que ya aprendí: " + usadas.slice(-400).join(" | ") + ".\n\n" +
+      "Responde SOLO con un arreglo JSON, sin texto extra ni markdown, con este formato exacto:\n" +
+      '[{"en":"frase en inglés","es":"significado natural y nativo en español","ej":"oración de ejemplo en inglés que contenga la frase tal cual"}]\n' +
+      "Importante: en 'ej' la frase de 'en' debe aparecer escrita igual (sin el signo final ? o !).";
+  }
+  function procesar(texto) {
+    var a = texto.indexOf("["), b = texto.lastIndexOf("]");
+    if (a < 0 || b < a) throw new Error("No encontré la lista. Pega la respuesta completa.");
+    var arr = JSON.parse(texto.slice(a, b + 1));
+    var vistas = {}; BANCO.forEach(function (f) { vistas[limpia(f[0]).toLowerCase()] = 1; });
+    var nuevas = [];
+    arr.forEach(function (o) {
+      if (!o || !o.en || !o.es || !o.ej) return;
+      var k = limpia(String(o.en)).toLowerCase();
+      if (vistas[k]) return;
+      vistas[k] = 1;
+      nuevas.push([String(o.en), String(o.es), String(o.ej)]);
+    });
+    if (nuevas.length < LOTE) throw new Error("Solo llegaron " + nuevas.length + " frases nuevas válidas (se necesitan " + LOTE + "). Vuelve a pedirlas.");
+    nuevas = nuevas.slice(0, LOTE);
+    nuevas.forEach(function (f) { BANCO.push(f); S.extra.push(f); });
+    guardar();
+    pintar();
+  }
+  function clave() {
+    try { var k = localStorage.getItem("videoscurso.anthropickey") || ""; return k.replace(/^"|"$/g, ""); } catch (x) { return ""; }
+  }
+  function panelGenerar(cont) {
+    var d = document.createElement("section"); d.className = "card";
+    var k = clave();
+    d.innerHTML = '<h2>🎉 ¡Lote ' + (lote + 1) + ' desbloqueado!</h2>' +
+      '<p>Necesitas 20 frases nuevas y diferentes. No hay límite: puedes pedir lotes todas las veces que quieras.</p>' +
+      (k ? '<div class="row"><button class="go" id="gAuto" type="button">✨ Generar 20 frases nuevas</button><span class="mut" id="gEst"></span></div><p class="mut">O, sin clave, usa el método manual de abajo.</p>' : '') +
+      '<p><b>Método con claude.ai (gratis con tu cuenta Pro):</b></p>' +
+      '<ol><li><button class="sec" id="gCopiar" type="button">📋 Copiar el pedido</button> y pégalo en un chat de claude.ai.</li>' +
+      '<li>Copia la respuesta de Claude y pégala aquí:</li></ol>' +
+      '<textarea id="gTxt" rows="6" style="width:100%;border:1px solid var(--bd);border-radius:12px;padding:10px;background:var(--bg);color:var(--fg);font:inherit" placeholder="Pega aquí la lista que te dio Claude…" aria-label="Respuesta de Claude"></textarea>' +
+      '<div class="row" style="margin-top:8px"><button class="go" id="gUsar" type="button">Cargar las 20 frases</button><span class="res" id="gMsg"></span></div>';
+    cont.appendChild(d);
+    var msg = d.querySelector("#gMsg");
+    d.querySelector("#gCopiar").onclick = function () {
+      var t = pedido();
+      (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(
+        function () { msg.textContent = "✅ Pedido copiado. Pégalo en claude.ai."; },
+        function () { d.querySelector("#gTxt").value = t; msg.textContent = "Copia el texto de la caja, pégalo en claude.ai y luego reemplaza la caja con la respuesta."; });
+    };
+    d.querySelector("#gUsar").onclick = function () {
+      try { procesar(d.querySelector("#gTxt").value); } catch (e) { msg.textContent = "⚠️ " + (e.message || "No pude leer la respuesta."); }
+    };
+    var auto = d.querySelector("#gAuto");
+    if (auto) auto.onclick = function () {
+      var est = d.querySelector("#gEst"); auto.disabled = true; est.textContent = "Generando…";
+      fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-api-key": k, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify({ model: "claude-haiku-5-5", max_tokens: 4000, messages: [{ role: "user", content: pedido() }] })
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        if (j.error) throw new Error(j.error.message);
+        procesar((j.content || []).map(function (c) { return c.text || ""; }).join(""));
+      }).catch(function (e) { auto.disabled = false; est.textContent = "⚠️ " + (e.message || "Error") + " — usa el método manual."; });
+    };
   }
 
   // ---------- examen ----------
@@ -421,14 +497,14 @@
     S.examenes.push({ lote: l, nota: nota, ok: ok, fecha: new Date().toISOString() });
     if (S.examenes.length > 100) S.examenes = S.examenes.slice(-100);
     var nuevo = false;
-    if (ok && l === S.desbloqueado && l + 1 < NLOTES) { S.desbloqueado = l + 1; nuevo = true; }
+    if (ok && l === S.desbloqueado) { S.desbloqueado = l + 1; nuevo = true; }
     guardar();
 
     var box = $("examen"), h = '<h2>Resultado del examen — lote ' + (l + 1) + '</h2>' +
       '<div class="nota ' + (ok ? "pass" : "fail") + '">' + nota + ' / ' + PREGUNTAS + '</div>';
     if (ok) {
       h += '<p>🎉 <b>¡Aprobaste!</b> ' + (nuevo ? "Se desbloquearon 20 frases nuevas y diferentes (lote " + (l + 2) + ")." :
-        l + 1 >= NLOTES ? "¡Completaste todas las frases del banco! Puedes repetir los exámenes cuando quieras." : "Ya tenías desbloqueado el siguiente lote.") + '</p>';
+        "Ya tenías desbloqueado el siguiente lote.") + '</p>';
     } else {
       h += '<p>Necesitas ' + APROBAR + ' de ' + PREGUNTAS + ' para pasar. Repasa las frases que fallaste y vuelve a intentarlo; las preguntas cambian cada vez.</p>';
     }
