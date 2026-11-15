@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="es" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frases más usadas en EE. UU.</title>
+<style>
+  :root {
+    --bg:#fff8f0; --card:#ffffff; --fg:#2b2140; --mut:#7a6f8c; --bd:#eadfd2;
+    --p1:#ff6b6b; --p2:#ffa94d; --p3:#845ef7; --hov:#f6efff; --sh:0 6px 20px rgba(80,40,120,.10);
+    --ok:#2f9e44; --bad:#e03131; --okbg:#e6f6ea; --badbg:#fdeaea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#17121f; --card:#221b30; --fg:#f4eefc; --mut:#a99cc0; --bd:#352b49; --hov:#2d2342; --sh:0 6px 20px rgba(0,0,0,.4); --ok:#69db7c; --bad:#ff8787; --okbg:#1f3a28; --badbg:#442227; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 "Segoe UI",system-ui,sans-serif; }
+  .wrap { max-width:900px; margin:0 auto; padding:0 16px 40px; }
+  header.hero { padding:24px 16px 40px; color:#fff; background:linear-gradient(135deg,var(--p3),var(--p1) 60%,var(--p2)); border-radius:0 0 32px 32px; text-align:center; }
+  .hero h1 { margin:8px 0 4px; font-size:clamp(1.4rem,4.5vw,2.1rem); }
+  .hero p { margin:0; opacity:.92; }
+  .nav { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .back { color:#fff; text-decoration:none; background:rgba(255,255,255,.2); padding:6px 14px; border-radius:999px; font-size:.9rem; }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:20px; padding:18px; box-shadow:var(--sh); margin-top:18px; }
+  .card h2 { margin:0 0 10px; font-size:1.1rem; }
+  .mut { color:var(--mut); font-size:.9rem; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  button { font:inherit; cursor:pointer; }
+  .go { background:linear-gradient(135deg,var(--p3),var(--p1)); color:#fff; border:0; padding:9px 18px; border-radius:999px; }
+  .go[disabled] { opacity:.45; cursor:not-allowed; }
+  .sec { background:var(--card); color:var(--fg); border:1px solid var(--bd); padding:7px 14px; border-radius:999px; }
+  .sec:hover { background:var(--hov); }
+  .tabs { display:flex; gap:8px; flex-wrap:wrap; }
+  .tab { border:1px solid var(--bd); background:var(--card); color:var(--fg); border-radius:999px; padding:6px 14px; }
+  .tab[aria-pressed="true"] { background:linear-gradient(135deg,var(--p3),var(--p1)); color:#fff; border-color:transparent; }
+  .tab[disabled] { opacity:.5; cursor:not-allowed; }
+  .barra { height:12px; background:var(--hov); border-radius:999px; overflow:hidden; margin:8px 0 4px; }
+  .barra i { display:block; height:100%; background:linear-gradient(90deg,var(--p3),var(--p1)); width:0; transition:width .3s; }
+  .frase { border:1px solid var(--bd); border-radius:16px; padding:14px; margin-top:12px; }
+  .frase.ok { border-color:var(--ok); background:var(--okbg); }
+  .frase .en { font-size:1.25rem; font-weight:700; }
+  .frase .num { color:var(--mut); font-size:.8rem; }
+  .frase .es { margin-top:2px; }
+  .frase .ej { color:var(--mut); font-style:italic; margin-top:4px; }
+  .res { margin-top:6px; font-size:.92rem; min-height:1.3em; }
+  .q { font-size:1.2rem; font-weight:700; margin:8px 0 12px; }
+  .opc { display:block; width:100%; text-align:left; margin-top:8px; padding:11px 14px; border:1px solid var(--bd); border-radius:14px; background:var(--card); color:var(--fg); }
+  .opc:hover:not([disabled]) { background:var(--hov); }
+  .opc.bien { background:var(--okbg); border-color:var(--ok); }
+  .opc.mal { background:var(--badbg); border-color:var(--bad); }
+  .nota { font-size:2.6rem; font-weight:800; }
+  .pass { color:var(--ok); } .fail { color:var(--bad); }
+  .rev { border-top:1px solid var(--bd); padding:8px 0; }
+  button:focus-visible, a:focus-visible { outline:3px solid var(--p3); outline-offset:2px; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="nav"><a class="back" href="./">← Dashboard</a><a class="back" href="estadisticas.html">📊 Estadísticas</a><a class="back" href="tutor.html">🇺🇸 Profesor</a></div>
+  <h1>💬 Las frases más usadas en EE. UU.</h1>
+  <p>Aprende 20 frases, haz un examen de 10 preguntas y desbloquea 20 nuevas.</p>
+</header>
+
+<main class="wrap">
+  <section class="card" id="progreso">
+    <h2 id="titLote"></h2>
+    <div class="barra"><i id="barra"></i></div>
+    <div class="mut" id="txtProg"></div>
+    <div class="row" style="margin-top:12px">
+      <div class="tabs" id="tabs" role="group" aria-label="Lotes de frases"></div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="go" id="btnExamen" disabled>📝 Hacer el examen (10 preguntas)</button>
+      <span class="mut" id="ayudaExamen"></span>
+    </div>
+  </section>
+
+  <section class="card" id="examen" hidden aria-live="polite"></section>
+
+  <section id="lista"></section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var KEY = "videoscurso.frasesusa";
+  var LOTE = 20, PREGUNTAS = 10, APROBAR = 7;
+
+  // [inglés, significado natural en español, ejemplo en inglés que contiene la frase]
+  var BANCO = [
+    // ---- Lote 1: básicas del día a día ----
+    ["How's it going?", "¿Qué tal? / ¿Cómo te va?", "Hey Mike, how's it going?"],
+    ["What's up?", "¿Qué onda? / ¿Qué hay?", "Hey! What's up? Not much, you?"],
+    ["No worries", "Tranquilo, no hay problema", "Sorry I'm late! — No worries, we just started."],
+    ["Thanks a lot", "Muchas gracias", "Thanks a lot for your help today."],
+    ["You're welcome", "De nada", "Thank you so much! — You're welcome."],
+    ["I'm sorry", "Lo siento", "I'm sorry, I didn't mean to bump into you."],
+    ["Excuse me", "Disculpe / Con permiso", "Excuse me, where is the bathroom?"],
+    ["Nice to meet you", "Mucho gusto", "I'm Anna. — Nice to meet you, Anna."],
+    ["See you later", "Nos vemos / Hasta luego", "I have to go now. See you later!"],
+    ["Take care", "Cuídate", "Bye, take care and drive safe."],
+    ["Hang on a second", "Espera un momento", "Hang on a second, I'll be right back."],
+    ["Let me know", "Avísame", "Let me know if you need anything."],
+    ["I don't know", "No sé", "Where is she? — I don't know."],
+    ["I have no idea", "Ni idea", "I have no idea where he went."],
+    ["That makes sense", "Tiene sentido", "Oh, that makes sense now. Thanks!"],
+    ["Sounds good", "Me parece bien / Suena bien", "Dinner at seven? — Sounds good."],
+    ["Of course", "Claro / Por supuesto", "Can you help me? — Of course."],
+    ["Are you kidding me?", "¿Me estás bromeando? / ¿En serio?", "Are you kidding me? That's crazy!"],
+    ["I'm not sure", "No estoy seguro", "I'm not sure what to say."],
+    ["Good luck", "Buena suerte", "You have an exam today? Good luck!"],
+
+    // ---- Lote 2: conversación cotidiana ----
+    ["What do you mean?", "¿A qué te refieres? / ¿Qué quieres decir?", "What do you mean? I don't get it."],
+    ["I'm on my way", "Voy en camino", "I'm on my way, I'll be there in ten minutes."],
+    ["I'll be right back", "Ya vuelvo", "I'll be right back, don't go anywhere."],
+    ["Can you do me a favor?", "¿Me haces un favor?", "Can you do me a favor? I need a ride."],
+    ["Do you mind?", "¿Te molesta? / ¿Te importa?", "Do you mind? I'm trying to sleep."],
+    ["I'll take care of it", "Yo me encargo", "Don't worry, I'll take care of it."],
+    ["It's up to you", "Tú decides", "Pizza or tacos? It's up to you."],
+    ["Let's get started", "Empecemos", "Everyone is here, so let's get started."],
+    ["I can't wait", "No veo la hora / Qué ganas", "The concert is tomorrow! I can't wait."],
+    ["What's the matter?", "¿Qué pasa? / ¿Qué te pasa?", "You look sad. What's the matter?"],
+    ["Long time no see", "Cuánto tiempo sin verte", "Long time no see! How have you been?"],
+    ["Make yourself at home", "Estás en tu casa", "Come in and make yourself at home."],
+    ["Keep in touch", "Mantengámonos en contacto", "It was great to see you. Keep in touch!"],
+    ["How come?", "¿Cómo así? / ¿Y eso por qué?", "I can't go tonight. — How come?"],
+    ["It's no big deal", "No es para tanto", "Forget it, it's no big deal."],
+    ["I got it", "Entendido / Yo me encargo", "Do you need help with that? — No, I got it."],
+    ["Give me a break", "No exageres / Dame un respiro", "Give me a break, I just started this job."],
+    ["Just kidding", "Es broma", "I ate your cake. Just kidding!"],
+    ["I'm starving", "Me muero de hambre", "When is lunch? I'm starving."],
+    ["It's about time", "Ya era hora", "You finally cleaned your room. It's about time!"],
+
+    // ---- Lote 3: opiniones y sentimientos ----
+    ["I'm looking forward to it", "Tengo muchas ganas de que llegue", "The trip is next week. I'm looking forward to it."],
+    ["I feel like", "Se me antoja / Tengo ganas de", "I feel like eating pizza tonight."],
+    ["To be honest", "Para ser sincero", "To be honest, I didn't like the movie."],
+    ["As a matter of fact", "De hecho", "As a matter of fact, I live next door."],
+    ["By the way", "Por cierto", "By the way, did you call your mom?"],
+    ["It depends", "Depende", "Will you come? — It depends on the weather."],
+    ["I couldn't agree more", "Estoy totalmente de acuerdo", "This food is amazing. — I couldn't agree more."],
+    ["That's a good point", "Buen punto", "That's a good point, I hadn't thought of that."],
+    ["It's not my thing", "No es lo mío", "Horror movies are not my thing."],
+    ["I'm so proud of you", "Estoy muy orgulloso de ti", "You got the job? I'm so proud of you!"],
+    ["You've got to be kidding", "No puede ser / Debes estar bromeando", "A hundred dollars? You've got to be kidding."],
+    ["I'm fed up", "Estoy harto", "I'm fed up with this traffic."],
+    ["It drives me crazy", "Me vuelve loco", "The noise from the street drives me crazy."],
+    ["I'm over the moon", "Estoy feliz de la vida", "We're having a baby! I'm over the moon."],
+    ["I'm a little nervous", "Estoy un poco nervioso", "I'm a little nervous about the interview."],
+    ["Don't get me wrong", "No me malinterpretes", "Don't get me wrong, I like him, but he's late a lot."],
+    ["Fair enough", "Es justo / Me parece razonable", "You want to pay half? Fair enough."],
+    ["It's a deal", "Trato hecho", "I cook, you wash the dishes. — It's a deal."],
+    ["No way", "¡Ni hablar! / ¡No puede ser!", "I won the lottery! — No way!"],
+    ["I'm not into it", "No me llama la atención", "Thanks, but I'm not into video games."],
+
+    // ---- Lote 4: lo práctico (restaurante, tiendas, trabajo) ----
+    ["Can I get the check, please?", "¿Me trae la cuenta, por favor?", "Can I get the check, please? We're in a hurry."],
+    ["I'll have", "Yo quiero / Voy a pedir", "I'll have the chicken salad and a water."],
+    ["To go, please", "Para llevar, por favor", "Two coffees to go, please."],
+    ["Keep the change", "Quédese con el cambio", "Here's twenty. Keep the change."],
+    ["How much is it?", "¿Cuánto cuesta?", "How much is it? I forgot my glasses."],
+    ["Do you take credit cards?", "¿Aceptan tarjeta de crédito?", "Do you take credit cards or only cash?"],
+    ["I'm just looking", "Solo estoy mirando", "Can I help you? — No thanks, I'm just looking."],
+    ["Can you give me a hand?", "¿Me echas una mano?", "This box is heavy. Can you give me a hand?"],
+    ["I'm running late", "Se me hace tarde / Voy retrasado", "I'm running late, start without me."],
+    ["I'll call you back", "Te devuelvo la llamada", "I'm in a meeting. I'll call you back."],
+    ["Could you repeat that?", "¿Podría repetirlo?", "Sorry, could you repeat that?"],
+    ["Could you speak more slowly?", "¿Podría hablar más despacio?", "Could you speak more slowly? My English is not great."],
+    ["What time does it start?", "¿A qué hora empieza?", "What time does it start? I don't want to miss it."],
+    ["I need to get going", "Ya me tengo que ir", "It's late. I need to get going."],
+    ["Let's catch up", "Pongámonos al día", "It's been a year. Let's catch up over coffee."],
+    ["I'm swamped", "Estoy hasta el cuello de trabajo", "I can't go out. I'm swamped at work."],
+    ["Let's call it a day", "Terminemos por hoy", "We did enough. Let's call it a day."],
+    ["It's on me", "Yo invito", "Put your wallet away. It's on me."],
+    ["Where can I find", "¿Dónde puedo encontrar...?", "Where can I find the milk, please?"],
+    ["Can I get a refill?", "¿Me puede rellenar el vaso?", "Excuse me, can I get a refill?"],
+
+    // ---- Lote 5: modismos y jerga ----
+    ["Piece of cake", "Pan comido", "The test was a piece of cake."],
+    ["Break a leg", "¡Mucha suerte! (en una presentación)", "Your show is tonight? Break a leg!"],
+    ["Hit the road", "Ponerse en marcha / Irse", "It's getting late. Let's hit the road."],
+    ["Beats me", "Ni idea / Qué sé yo", "Why is he mad? — Beats me."],
+    ["You bet", "Claro que sí / Por supuesto", "Will you be there? — You bet!"],
+    ["My bad", "Mi culpa / Fallé yo", "Oh, I took your seat. My bad!"],
+    ["Heads up", "Ojo / Te aviso", "Just a heads up, the boss is in a bad mood."],
+    ["Not a chance", "Ni de broma / Imposible", "Lend you my car? Not a chance."],
+    ["Cut it out", "Ya basta / Para ya", "Cut it out! That's not funny."],
+    ["Hang out", "Pasar el rato / Salir con amigos", "Do you want to hang out this weekend?"],
+    ["Chill out", "Cálmate / Relájate", "Chill out, everything is going to be fine."],
+    ["I'm down", "Me apunto", "Movie tonight? — I'm down."],
+    ["What a bummer", "Qué lástima / Qué mala suerte", "The game got canceled? What a bummer."],
+    ["That's awesome", "Qué genial", "You got the tickets? That's awesome!"],
+    ["Bite the bullet", "Aguantarse y hacerlo / Hacer de tripas corazón", "I hate the dentist, but I have to bite the bullet."],
+    ["Under the weather", "Maldispuesto / Algo enfermo", "I'm feeling a little under the weather today."],
+    ["Once in a while", "De vez en cuando", "I eat fast food once in a while."],
+    ["Keep an eye on", "Vigilar / Estar pendiente de", "Can you keep an eye on my bag?"],
+    ["Figure it out", "Resolverlo / Averiguarlo", "Don't worry, we'll figure it out."],
+    ["Let's call it a night", "Terminemos la noche / Ya vámonos a dormir", "We're all tired. Let's call it a night."]
+  ];
+  var NLOTES = Math.floor(BANCO.length / LOTE);
+
+  // ---------- estado ----------
+  function cargar() {
+    var e;
+    try { e = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (x) { e = null; }
+    if (!e || typeof e !== "object") e = {};
+    e.aprendidas = e.aprendidas || {};   // {indiceGlobal: true}
+    e.mejor = e.mejor || {};             // {indiceGlobal: mejor % al decirla}
+    e.examenes = e.examenes || [];       // [{lote, nota, ok, fecha}]
+    e.desbloqueado = Math.max(0, Math.min(NLOTES - 1, e.desbloqueado || 0));
+    return e;
+  }
+  var S = cargar();
+  function guardar() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (x) {} }
+  var lote = S.desbloqueado;   // lote que se está viendo
+
+  function indices(l) { var a = []; for (var i = l * LOTE; i < (l + 1) * LOTE; i++) a.push(i); return a; }
+  function aprendidasDe(l) { return indices(l).filter(function (i) { return S.aprendidas[i]; }).length; }
+  function aprobado(l) { return S.examenes.some(function (x) { return x.lote === l && x.ok; }); }
+  function limpia(t) { return t.replace(/[?!.,]+$/g, ""); }
+
+  // ---------- voz ----------
+  var botonSonando = null;
+  function pararVoz() {
+    try { speechSynthesis.cancel(); } catch (x) {}
+    if (botonSonando) { botonSonando.textContent = botonSonando.dataset.txt; botonSonando = null; }
+  }
+  function hablar(texto, btn) {
+    if (!("speechSynthesis" in window)) { alert("Tu navegador no tiene voz. Prueba con Chrome o Edge."); return; }
+    if (botonSonando === btn) { pararVoz(); return; }
+    pararVoz();
+    var u = new SpeechSynthesisUtterance(texto);
+    u.lang = "en-US"; u.rate = 0.9;
+    var vs = speechSynthesis.getVoices().filter(function (v) { return /^en[-_]US/i.test(v.lang); });
+    if (vs.length) u.voice = vs[0];
+    btn.dataset.txt = btn.dataset.txt || btn.textContent;
+    btn.textContent = "⏹ Parar";
+    botonSonando = btn;
+    u.onend = u.onerror = function () { if (botonSonando === btn) { btn.textContent = btn.dataset.txt; botonSonando = null; } };
+    speechSynthesis.speak(u);
+  }
+
+  // ---------- reconocimiento ----------
+  function palabras(t) { return t.toLowerCase().replace(/[^a-z0-9' ]+/g, " ").split(/\s+/).filter(Boolean); }
+  function puntaje(objetivo, oido) {
+    var a = palabras(objetivo), b = palabras(oido);
+    if (!a.length) return 0;
+    var m = [], i, j;
+    for (i = 0; i <= a.length; i++) { m.push(new Array(b.length + 1).fill(0)); }
+    for (i = 1; i <= a.length; i++) for (j = 1; j <= b.length; j++)
+      m[i][j] = a[i - 1] === b[j - 1] ? m[i - 1][j - 1] + 1 : Math.max(m[i - 1][j], m[i][j - 1]);
+    var pen = Math.max(0, b.length - a.length) * 0.05;
+    return Math.max(0, Math.round((m[a.length][b.length] / a.length - pen) * 100));
+  }
+  function decir(i, btn, out) {
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { out.textContent = "Tu navegador no reconoce voz. Usa Chrome o Edge."; return; }
+    pararVoz();
+    var r = new SR();
+    r.lang = "en-US"; r.maxAlternatives = 3; r.interimResults = false;
+    btn.disabled = true; btn.textContent = "🎙 Escuchando…";
+    out.textContent = "Di la frase en inglés…";
+    var listo = false;
+    r.onresult = function (ev) {
+      listo = true;
+      var mejor = 0, oido = "";
+      for (var k = 0; k < ev.results[0].length; k++) {
+        var s = puntaje(BANCO[i][0], ev.results[0][k].transcript);
+        if (s >= mejor) { mejor = s; oido = ev.results[0][k].transcript; }
+      }
+      if (mejor > (S.mejor[i] || 0)) { S.mejor[i] = mejor; guardar(); }
+      var msg = mejor >= 85 ? "✅ ¡Muy bien!" : mejor >= 60 ? "👍 Casi, repítela." : "🔁 Inténtalo de nuevo, más despacio.";
+      out.textContent = msg + " " + mejor + "% — te entendí: “" + oido + "” (mejor: " + S.mejor[i] + "%)";
+    };
+    r.onerror = function (e) { listo = true; out.textContent = e.error === "not-allowed" ? "Permite el micrófono en tu navegador." : "No te escuché bien, intenta otra vez."; };
+    r.onend = function () { btn.disabled = false; btn.textContent = "🎤 Decirla"; if (!listo) out.textContent = "No escuché nada, intenta otra vez."; };
+    try { r.start(); } catch (x) { btn.disabled = false; btn.textContent = "🎤 Decirla"; }
+  }
+
+  // ---------- pantalla principal ----------
+  function pintar() {
+    var n = aprendidasDe(lote);
+    $("titLote").textContent = "Lote " + (lote + 1) + " de " + NLOTES + (aprobado(lote) ? " ✅ aprobado" : "");
+    $("barra").style.width = (n / LOTE * 100) + "%";
+    $("txtProg").textContent = n + " de " + LOTE + " frases aprendidas.";
+
+    var tabs = $("tabs"); tabs.innerHTML = "";
+    for (var l = 0; l < NLOTES; l++) {
+      var b = document.createElement("button");
+      b.className = "tab"; b.type = "button";
+      b.textContent = "Lote " + (l + 1) + (aprobado(l) ? " ✅" : l > S.desbloqueado ? " 🔒" : "");
+      b.disabled = l > S.desbloqueado;
+      b.setAttribute("aria-pressed", l === lote ? "true" : "false");
+      (function (x) { b.onclick = function () { lote = x; cerrarExamen(); pintar(); }; })(l);
+      tabs.appendChild(b);
+    }
+
+    var listo = n === LOTE;
+    $("btnExamen").disabled = !listo;
+    $("ayudaExamen").textContent = listo
+      ? (aprobado(lote) ? "Ya lo aprobaste; puedes repetirlo para practicar." : "¡Ya puedes hacer el examen! Necesitas " + APROBAR + " de " + PREGUNTAS + ".")
+      : "Marca las 20 frases como aprendidas para abrir el examen.";
+
+    var cont = $("lista"); cont.innerHTML = "";
+    indices(lote).forEach(function (i, k) {
+      var f = BANCO[i], d = document.createElement("article");
+      d.className = "frase" + (S.aprendidas[i] ? " ok" : "");
+      var mejor = S.mejor[i];
+      d.innerHTML =
+        '<div class="num">Frase ' + (k + 1) + ' de ' + LOTE + (mejor ? ' · mejor pronunciación: ' + mejor + '%' : '') + '</div>' +
+        '<div class="en" lang="en"></div>' +
+        '<div class="es"></div>' +
+        '<div class="ej" lang="en"></div>' +
+        '<div class="row" style="margin-top:10px"></div>' +
+        '<div class="res" aria-live="polite"></div>';
+      d.querySelector(".en").textContent = f[0];
+      d.querySelector(".es").textContent = "🇪🇸 " + f[1];
+      d.querySelector(".ej").textContent = "“" + f[2] + "”";
+      var fila = d.querySelector(".row"), res = d.querySelector(".res");
+
+      var bo = document.createElement("button"); bo.className = "sec"; bo.type = "button"; bo.textContent = "🔊 Escuchar";
+      bo.onclick = function () { hablar(f[0], bo); };
+      var be = document.createElement("button"); be.className = "sec"; be.type = "button"; be.textContent = "🔊 Ejemplo";
+      be.onclick = function () { hablar(f[2], be); };
+      var bd = document.createElement("button"); bd.className = "sec"; bd.type = "button"; bd.textContent = "🎤 Decirla";
+      bd.onclick = function () { decir(i, bd, res); };
+      var lab = document.createElement("label"); lab.style.cursor = "pointer";
+      var ck = document.createElement("input"); ck.type = "checkbox"; ck.checked = !!S.aprendidas[i];
+      ck.onchange = function () {
+        if (ck.checked) S.aprendidas[i] = true; else delete S.aprendidas[i];
+        guardar(); pintar();
+      };
+      lab.appendChild(ck); lab.appendChild(document.createTextNode(" Ya la aprendí"));
+      fila.appendChild(bo); fila.appendChild(be); fila.appendChild(bd); fila.appendChild(lab);
+      cont.appendChild(d);
+    });
+  }
+
+  // ---------- examen ----------
+  var EX = null;
+  function mezclar(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function cerrarExamen() { EX = null; $("examen").hidden = true; $("examen").innerHTML = ""; }
+
+  function hacerPregunta(i, tipo, ids) {
+    var f = BANCO[i], otras = mezclar(ids.filter(function (x) { return x !== i; })).slice(0, 3);
+    var ops, correcta, enun, hablarTxt = null;
+    if (tipo === "cloze") {
+      var base = limpia(f[0]);
+      var re = new RegExp(base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      if (re.test(f[2])) {
+        enun = "Completa la frase:  “" + f[2].replace(re, "_____") + "”";
+        correcta = base;
+        ops = otras.map(function (x) { return limpia(BANCO[x][0]); });
+        ops.push(correcta);
+        return { i: i, enun: enun, ops: mezclar(ops), correcta: correcta, ayuda: f[1] };
+      }
+      tipo = "en-es";
+    }
+    if (tipo === "en-es") {
+      enun = "¿Qué significa «" + f[0] + "»?";
+      correcta = f[1];
+      ops = otras.map(function (x) { return BANCO[x][1]; }); ops.push(correcta);
+      hablarTxt = f[0];
+    } else {
+      enun = "¿Cómo se dice en inglés: «" + f[1] + "»?";
+      correcta = f[0];
+      ops = otras.map(function (x) { return BANCO[x][0]; }); ops.push(correcta);
+    }
+    return { i: i, enun: enun, ops: mezclar(ops), correcta: correcta, hablar: hablarTxt };
+  }
+
+  function empezarExamen() {
+    var ids = indices(lote);
+    var elegidas = mezclar(ids).slice(0, PREGUNTAS);
+    var tipos = ["en-es", "es-en", "cloze"];
+    EX = { lote: lote, preg: elegidas.map(function (i, k) { return hacerPregunta(i, tipos[k % 3], ids); }), pos: 0, aciertos: 0, fallos: [] };
+    EX.preg = mezclar(EX.preg);
+    $("examen").hidden = false;
+    mostrarPregunta();
+    $("examen").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function mostrarPregunta() {
+    var p = EX.preg[EX.pos], box = $("examen");
+    box.innerHTML = '<h2>📝 Examen del lote ' + (EX.lote + 1) + ' — pregunta ' + (EX.pos + 1) + ' de ' + PREGUNTAS + '</h2>' +
+      '<div class="barra"><i style="width:' + (EX.pos / PREGUNTAS * 100) + '%"></i></div>' +
+      '<div class="q" lang="es"></div><div id="opciones"></div><div class="res" id="fb"></div><div class="row" id="acc" style="margin-top:10px"></div>';
+    box.querySelector(".q").textContent = p.enun;
+    if (p.hablar) {
+      var bs = document.createElement("button"); bs.className = "sec"; bs.type = "button"; bs.textContent = "🔊 Escuchar";
+      bs.onclick = function () { hablar(p.hablar, bs); };
+      $("acc").appendChild(bs);
+    }
+    var cont = $("opciones");
+    p.ops.forEach(function (t) {
+      var b = document.createElement("button"); b.className = "opc"; b.type = "button"; b.textContent = t;
+      b.onclick = function () { responder(p, b, t); };
+      cont.appendChild(b);
+    });
+  }
+
+  function responder(p, btn, t) {
+    var bien = t === p.correcta;
+    Array.prototype.forEach.call($("opciones").children, function (b) {
+      b.disabled = true;
+      if (b.textContent === p.correcta) b.classList.add("bien");
+    });
+    if (bien) EX.aciertos++; else { btn.classList.add("mal"); EX.fallos.push(p.i); }
+    $("fb").textContent = bien ? "✅ ¡Correcto!" : "❌ La respuesta era: " + p.correcta;
+    var sig = document.createElement("button"); sig.className = "go"; sig.type = "button";
+    sig.textContent = EX.pos + 1 < PREGUNTAS ? "Siguiente →" : "Ver resultado";
+    sig.onclick = function () { EX.pos++; if (EX.pos < PREGUNTAS) mostrarPregunta(); else terminar(); };
+    $("acc").appendChild(sig); sig.focus();
+  }
+
+  function terminar() {
+    var nota = EX.aciertos, ok = nota >= APROBAR, l = EX.lote;
+    S.examenes.push({ lote: l, nota: nota, ok: ok, fecha: new Date().toISOString() });
+    if (S.examenes.length > 100) S.examenes = S.examenes.slice(-100);
+    var nuevo = false;
+    if (ok && l === S.desbloqueado && l + 1 < NLOTES) { S.desbloqueado = l + 1; nuevo = true; }
+    guardar();
+
+    var box = $("examen"), h = '<h2>Resultado del examen — lote ' + (l + 1) + '</h2>' +
+      '<div class="nota ' + (ok ? "pass" : "fail") + '">' + nota + ' / ' + PREGUNTAS + '</div>';
+    if (ok) {
+      h += '<p>🎉 <b>¡Aprobaste!</b> ' + (nuevo ? "Se desbloquearon 20 frases nuevas y diferentes (lote " + (l + 2) + ")." :
+        l + 1 >= NLOTES ? "¡Completaste todas las frases del banco! Puedes repetir los exámenes cuando quieras." : "Ya tenías desbloqueado el siguiente lote.") + '</p>';
+    } else {
+      h += '<p>Necesitas ' + APROBAR + ' de ' + PREGUNTAS + ' para pasar. Repasa las frases que fallaste y vuelve a intentarlo; las preguntas cambian cada vez.</p>';
+    }
+    if (EX.fallos.length) {
+      h += '<h2 style="margin-top:14px">Para repasar</h2>';
+      EX.fallos.forEach(function (i) {
+        h += '<div class="rev"><b lang="en">' + esc(BANCO[i][0]) + '</b> — ' + esc(BANCO[i][1]) + '</div>';
+      });
+    }
+    h += '<div class="row" style="margin-top:14px">';
+    if (ok && nuevo) h += '<button class="go" id="irSig" type="button">Ir al lote ' + (l + 2) + ' →</button>';
+    if (!ok) h += '<button class="go" id="otra" type="button">🔁 Intentarlo otra vez</button>';
+    h += '<button class="sec" id="cerrar" type="button">Cerrar</button></div>';
+    box.innerHTML = h;
+    if ($("irSig")) $("irSig").onclick = function () { lote = S.desbloqueado; cerrarExamen(); pintar(); window.scrollTo({ top: 0, behavior: "smooth" }); };
+    if ($("otra")) $("otra").onclick = empezarExamen;
+    $("cerrar").onclick = function () { cerrarExamen(); pintar(); };
+    pintar();
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+  $("btnExamen").onclick = empezarExamen;
+  if ("speechSynthesis" in window) { try { speechSynthesis.getVoices(); } catch (x) {} }
+  pintar();
+})();
+</script>
+</body>
+</html>
